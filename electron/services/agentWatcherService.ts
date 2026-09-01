@@ -31,10 +31,10 @@ export class AgentWatcherService {
     listener(this.lastState);
   }
 
-  public startPolling(intervalMs = 400) {
+  public startPolling(intervalMs = 300) {
     if (this.pollInterval) return;
     this.poll();
-    this.heartbeatInterval = setInterval(() => this.poll(), 5000);
+    this.heartbeatInterval = setInterval(() => this.poll(), 4000);
     this.pollInterval = setInterval(() => this.poll(), intervalMs);
   }
 
@@ -137,7 +137,7 @@ export class AgentWatcherService {
           };
         }
       } else {
-        // Active agent returned null (turn finished or idle)
+        // Active agent returned null (turn finished cleanly or idle)
         this.isWaitingApproval = false;
 
         if (this.wasWorking) {
@@ -238,13 +238,13 @@ export class AgentWatcherService {
         };
       }
 
-      // 2. Check if the newest step is explicitly suspended waiting for user input
-      const isAwaitingInput =
+      // 2. Check if explicit interactive tool (ask_question) or WAITING_FOR_INPUT
+      const isExplicitApprovalTool =
         newestStep?.status === 'WAITING_FOR_INPUT' ||
         newestStep?.type === 'WAITING_FOR_INPUT' ||
         (newestStep?.tool_calls && newestStep.tool_calls.some((tc: any) => tc.name === 'ask_question' && newestStep.status !== 'DONE'));
 
-      if (isAwaitingInput) {
+      if (isExplicitApprovalTool) {
         this.isWaitingApproval = true;
         return {
           agent: 'Antigravity',
@@ -255,21 +255,63 @@ export class AgentWatcherService {
         };
       }
 
-      // 3. If newest step is a completed response without tool calls, agent turn is DONE
+      // 3. Check if newest step is a tool call that is pending user permission (e.g. run_command modal)
+      if (newestStep?.type === 'PLANNER_RESPONSE' && newestStep.tool_calls && newestStep.tool_calls.length > 0) {
+        const tc = newestStep.tool_calls[0];
+        const args = tc.args || {};
+        let actionDesc = args.toolAction || args.toolSummary || tc.toolAction || tc.name || 'Action Required';
+        if (typeof actionDesc === 'string') {
+          actionDesc = actionDesc.replace(/^"|"$/g, '').replace(/^\\\"|\\\"$/g, '').trim();
+        }
+
+        // If a task is actively running in background, it's executing!
+        if (hasActiveTask) {
+          this.isWaitingApproval = false;
+          return {
+            agent: 'Antigravity',
+            isActive: true,
+            action: actionDesc,
+            status: 'executing',
+          };
+        }
+
+        // If the tool has been sitting with no background task and no tool result for > 1.2s,
+        // it means the IDE permission modal is open waiting for the user to click "Yes, allow this time"!
+        if (ageSeconds > 1.2) {
+          this.isWaitingApproval = true;
+          return {
+            agent: 'Antigravity',
+            isActive: true,
+            action: 'Needs Approval',
+            detail: actionDesc,
+            status: 'awaiting_approval',
+          };
+        }
+
+        // First 1.2s: tool starting
+        return {
+          agent: 'Antigravity',
+          isActive: true,
+          action: actionDesc,
+          status: 'working',
+        };
+      }
+
+      // 4. If newest step is a completed response without tool calls and age < 45s, agent turn is DONE
       if (newestStep?.type === 'PLANNER_RESPONSE' && (!newestStep.tool_calls || newestStep.tool_calls.length === 0)) {
         if (!hasActiveTask) {
           this.isWaitingApproval = false;
-          return null; // Turn finished cleanly -> transitions to completed
+          return null; // Turn finished cleanly -> transitions to completed for 3s
         }
       }
 
-      // 4. If transcript hasn't changed in > 45s and no active background tasks, idle
+      // 5. If transcript hasn't changed in > 45s and no active background tasks, idle
       if (ageSeconds > 45 && !hasActiveTask) {
         this.isWaitingApproval = false;
         return null;
       }
 
-      // 5. Extract latest tool call action description
+      // 6. Generic working state
       let actionText = 'Working...';
       for (const step of parsedSteps) {
         if (step.tool_calls && step.tool_calls.length > 0) {
@@ -283,14 +325,6 @@ export class AgentWatcherService {
             actionText = raw;
             break;
           }
-        }
-      }
-
-      if (actionText === 'Working...') {
-        if (hasActiveTask) {
-          actionText = 'Running command...';
-        } else if (newestStep?.type === 'USER_INPUT') {
-          actionText = 'Thinking...';
         }
       }
 
