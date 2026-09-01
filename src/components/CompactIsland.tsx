@@ -156,8 +156,8 @@ export const CompactIsland: React.FC<CompactIslandProps> = ({
             {incomingNotification.type === 'permission' ? 'Grant' : 'New'}
           </span>
         </div>
-      ) : agentActivity?.isActive || (agentActivity && (agentActivity.status === 'thinking' || agentActivity.status === 'executing' || agentActivity.status === 'working' || agentActivity.status === 'error' || agentActivity.status === 'completed')) ? (
-        /* 3. UNIVERSAL AGENT STATUS (Thinking, Executing, Done, Error) */
+      ) : agentActivity?.isActive || (agentActivity && (agentActivity.status === 'awaiting_approval' || agentActivity.status === 'thinking' || agentActivity.status === 'executing' || agentActivity.status === 'working' || agentActivity.status === 'error' || agentActivity.status === 'completed')) ? (
+        /* 3. UNIVERSAL AGENT STATUS (Thinking, Executing, Done, Approval, Error) */
         <div className="flex items-center justify-between w-full gap-2 overflow-hidden">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <div className="flex items-center gap-1.5 shrink-0">
@@ -169,13 +169,15 @@ export const CompactIsland: React.FC<CompactIslandProps> = ({
                 {agentActivity.agent}
               </span>
               <span className="text-xs text-neutral-300 font-mono truncate">
-                • {agentActivity.detail || agentActivity.action || (agentActivity.status === 'thinking' ? 'Thinking...' : agentActivity.status === 'executing' ? 'Executing...' : 'Active')}
+                • {agentActivity.detail || agentActivity.action || (agentActivity.status === 'awaiting_approval' ? 'Needs Approval' : agentActivity.status === 'thinking' ? 'Thinking...' : agentActivity.status === 'executing' ? 'Executing...' : 'Active')}
               </span>
             </div>
           </div>
           <span
             className={`text-[9px] font-mono uppercase px-1.5 py-0.5 rounded-full font-bold shrink-0 ${
-              agentActivity.status === 'error'
+              agentActivity.status === 'awaiting_approval'
+                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 animate-pulse'
+                : agentActivity.status === 'error'
                 ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
                 : agentActivity.status === 'completed'
                 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
@@ -184,7 +186,9 @@ export const CompactIsland: React.FC<CompactIslandProps> = ({
                 : 'text-black bg-white animate-pulse'
             }`}
           >
-            {agentActivity.status === 'thinking'
+            {agentActivity.status === 'awaiting_approval'
+              ? 'Approval'
+              : agentActivity.status === 'thinking'
               ? 'Think'
               : agentActivity.status === 'executing'
               ? 'Exec'

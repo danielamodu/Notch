@@ -31,10 +31,10 @@ export class AgentWatcherService {
     listener(this.lastState);
   }
 
-  public startPolling(intervalMs = 500) {
+  public startPolling(intervalMs = 400) {
     if (this.pollInterval) return;
     this.poll();
-    this.heartbeatInterval = setInterval(() => this.poll(), 10000);
+    this.heartbeatInterval = setInterval(() => this.poll(), 5000);
     this.pollInterval = setInterval(() => this.poll(), intervalMs);
   }
 
@@ -60,7 +60,7 @@ export class AgentWatcherService {
       this.watchedPath = logPath;
       this.transcriptWatcher = fs.watch(logPath, { persistent: false }, () => {
         if (this.debounceTimer) clearTimeout(this.debounceTimer);
-        this.debounceTimer = setTimeout(() => this.poll(), 60);
+        this.debounceTimer = setTimeout(() => this.poll(), 50);
       });
 
       this.transcriptWatcher.on('error', () => {
@@ -119,13 +119,12 @@ export class AgentWatcherService {
             isActive: true,
             agent: activeAgent.agent,
             action: activeAgent.action || 'Needs Approval',
-            detail: activeAgent.detail,
+            detail: activeAgent.detail || 'Action Required',
             status: 'awaiting_approval',
             updatedAt: Date.now(),
           };
         } else {
           this.wasWorking = true;
-          this.isWaitingApproval = false;
           this.completedUntil = 0;
           this.lastState = {
             isActive: true,
@@ -138,17 +137,16 @@ export class AgentWatcherService {
         }
       } else {
         if (this.isWaitingApproval) {
-          // If was waiting for approval and LLM paused, KEEP awaiting_approval! Never false complete!
+          // If was waiting for approval, PERSIST the awaiting_approval state in the island!
           this.lastState = {
             isActive: true,
             agent: this.lastState.agent || 'Antigravity',
-            action: 'Action Required',
-            detail: 'Needs Approval',
+            action: 'Needs Approval',
+            detail: 'Action Required',
             status: 'awaiting_approval',
             updatedAt: Date.now(),
           };
         } else if (this.wasWorking) {
-          // Only trigger completed if it was actually working and NOT waiting for approval
           this.wasWorking = false;
           this.completedUntil = Date.now() + 3000;
           this.lastState = {
@@ -159,7 +157,6 @@ export class AgentWatcherService {
             updatedAt: Date.now(),
           };
         } else if (Date.now() < this.completedUntil) {
-          // Still within 3-second completion window
           this.lastState = {
             isActive: false,
             agent: this.lastState.agent,
@@ -214,10 +211,8 @@ export class AgentWatcherService {
         } catch {}
       }
 
-      if (ageSeconds > 60 && !hasActiveTask && !this.isWaitingApproval) return null;
-
-      // Read last 32KB of transcript to extract trailing steps & permission state
-      const bufferSize = Math.min(active.logSize, 32768);
+      // Read last 64KB of transcript
+      const bufferSize = Math.min(active.logSize, 65536);
       const fd = fs.openSync(active.logPath, 'r');
       const buffer = Buffer.alloc(bufferSize);
       fs.readSync(fd, buffer, 0, bufferSize, Math.max(0, active.logSize - bufferSize));
@@ -228,7 +223,7 @@ export class AgentWatcherService {
       if (lines.length === 0) return null;
 
       const parsedSteps: any[] = [];
-      for (let i = lines.length - 1; i >= Math.max(0, lines.length - 15); i--) {
+      for (let i = lines.length - 1; i >= Math.max(0, lines.length - 20); i--) {
         try {
           parsedSteps.push(JSON.parse(lines[i]));
         } catch {}
@@ -237,39 +232,8 @@ export class AgentWatcherService {
       if (parsedSteps.length === 0) return null;
 
       const newestStep = parsedSteps[0];
-      const chunkLower = rawTranscriptChunk.toLowerCase();
 
-      // Check for permission, confirmation, or user-prompt block
-      const hasPermissionPrompt =
-        chunkLower.includes('waiting for user input') ||
-        chunkLower.includes('allow running this command') ||
-        chunkLower.includes('allow running') ||
-        chunkLower.includes('permission required') ||
-        chunkLower.includes('waiting for input') ||
-        chunkLower.includes('action required') ||
-        newestStep?.status === 'WAITING_FOR_INPUT' ||
-        newestStep?.type === 'WAITING_FOR_INPUT';
-
-      // Check if newest step called ask_question tool
-      let isAskQuestionTool = false;
-      if (newestStep?.tool_calls && newestStep.tool_calls.length > 0) {
-        if (newestStep.tool_calls.some((tc: any) => tc.name === 'ask_question')) {
-          isAskQuestionTool = true;
-        }
-      }
-
-      if (hasPermissionPrompt || isAskQuestionTool) {
-        this.isWaitingApproval = true;
-        return {
-          agent: 'Antigravity',
-          isActive: true,
-          action: 'Needs Approval',
-          detail: 'Action Required',
-          status: 'awaiting_approval',
-        };
-      }
-
-      // If newest step is USER_INPUT, user just responded, reset approval block
+      // 1. If newest step is USER_INPUT, user replied! Reset waiting state
       if (newestStep?.type === 'USER_INPUT') {
         this.isWaitingApproval = false;
         return {
@@ -280,7 +244,56 @@ export class AgentWatcherService {
         };
       }
 
-      // If newest step is PLANNER_RESPONSE without tool_calls, and ageSeconds > 8, agent has answered
+      // 2. Check if the newest or trailing step requires human input/approval
+      let needsApproval = false;
+
+      // Check tool calls (ask_question or RequestFeedback)
+      for (const step of parsedSteps.slice(0, 5)) {
+        if (step.tool_calls && step.tool_calls.length > 0) {
+          for (const tc of step.tool_calls) {
+            if (tc.name === 'ask_question') needsApproval = true;
+            if (tc.args && typeof tc.args === 'object') {
+              if (tc.args.ArtifactMetadata?.RequestFeedback === true) needsApproval = true;
+            }
+          }
+        }
+        if (step.status === 'WAITING_FOR_INPUT' || step.type === 'WAITING_FOR_INPUT') {
+          needsApproval = true;
+        }
+      }
+
+      // Check text for permission phrases
+      const textSample = (newestStep?.content || '').toLowerCase();
+      if (
+        textSample.includes('waiting for user input') ||
+        textSample.includes('allow running this command') ||
+        textSample.includes('allow running') ||
+        textSample.includes('permission required') ||
+        textSample.includes('action required') ||
+        textSample.includes('do you want to proceed') ||
+        textSample.includes('confirm before proceeding')
+      ) {
+        needsApproval = true;
+      }
+
+      if (needsApproval) {
+        this.isWaitingApproval = true;
+        return {
+          agent: 'Antigravity',
+          isActive: true,
+          action: 'Needs Approval',
+          detail: 'Action Required',
+          status: 'awaiting_approval',
+        };
+      }
+
+      // 3. If transcript hasn't changed in > 60s and no active background tasks, idle
+      if (ageSeconds > 60 && !hasActiveTask) {
+        this.isWaitingApproval = false;
+        return null;
+      }
+
+      // 4. If newest step is finished PLANNER_RESPONSE without tool calls and age > 8s
       if (newestStep?.type === 'PLANNER_RESPONSE' && (!newestStep.tool_calls || newestStep.tool_calls.length === 0)) {
         if (ageSeconds > 8 && !hasActiveTask) {
           this.isWaitingApproval = false;
@@ -288,7 +301,7 @@ export class AgentWatcherService {
         }
       }
 
-      // Find the most recent tool call action description
+      // 5. Extract latest tool call action description
       let actionText = 'Working...';
       for (const step of parsedSteps) {
         if (step.tool_calls && step.tool_calls.length > 0) {
@@ -308,7 +321,7 @@ export class AgentWatcherService {
       if (actionText === 'Working...') {
         if (hasActiveTask) {
           actionText = 'Running command...';
-        } else if (newestStep.type === 'USER_INPUT') {
+        } else if (newestStep?.type === 'USER_INPUT') {
           actionText = 'Thinking...';
         }
       }
