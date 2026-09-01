@@ -125,6 +125,7 @@ export class AgentWatcherService {
           };
         } else {
           this.wasWorking = true;
+          this.isWaitingApproval = false;
           this.completedUntil = 0;
           this.lastState = {
             isActive: true,
@@ -136,17 +137,10 @@ export class AgentWatcherService {
           };
         }
       } else {
-        if (this.isWaitingApproval) {
-          // If was waiting for approval, PERSIST the awaiting_approval state in the island!
-          this.lastState = {
-            isActive: true,
-            agent: this.lastState.agent || 'Antigravity',
-            action: 'Needs Approval',
-            detail: 'Action Required',
-            status: 'awaiting_approval',
-            updatedAt: Date.now(),
-          };
-        } else if (this.wasWorking) {
+        // Active agent returned null (turn finished or idle)
+        this.isWaitingApproval = false;
+
+        if (this.wasWorking) {
           this.wasWorking = false;
           this.completedUntil = Date.now() + 3000;
           this.lastState = {
@@ -203,7 +197,7 @@ export class AgentWatcherService {
           for (const tf of taskFiles) {
             if (!tf.endsWith('.log')) continue;
             const tStat = fs.statSync(path.join(tasksDir, tf));
-            if ((Date.now() - tStat.mtimeMs) / 1000 < 20) {
+            if ((Date.now() - tStat.mtimeMs) / 1000 < 15) {
               hasActiveTask = true;
               break;
             }
@@ -211,8 +205,8 @@ export class AgentWatcherService {
         } catch {}
       }
 
-      // Read last 64KB of transcript
-      const bufferSize = Math.min(active.logSize, 65536);
+      // Read latest transcript lines
+      const bufferSize = Math.min(active.logSize, 32768);
       const fd = fs.openSync(active.logPath, 'r');
       const buffer = Buffer.alloc(bufferSize);
       fs.readSync(fd, buffer, 0, bufferSize, Math.max(0, active.logSize - bufferSize));
@@ -223,7 +217,7 @@ export class AgentWatcherService {
       if (lines.length === 0) return null;
 
       const parsedSteps: any[] = [];
-      for (let i = lines.length - 1; i >= Math.max(0, lines.length - 20); i--) {
+      for (let i = lines.length - 1; i >= Math.max(0, lines.length - 10); i--) {
         try {
           parsedSteps.push(JSON.parse(lines[i]));
         } catch {}
@@ -233,7 +227,7 @@ export class AgentWatcherService {
 
       const newestStep = parsedSteps[0];
 
-      // 1. If newest step is USER_INPUT, user replied! Reset waiting state
+      // 1. If newest step is USER_INPUT, user just sent a prompt, agent is thinking
       if (newestStep?.type === 'USER_INPUT') {
         this.isWaitingApproval = false;
         return {
@@ -244,39 +238,13 @@ export class AgentWatcherService {
         };
       }
 
-      // 2. Check if the newest or trailing step requires human input/approval
-      let needsApproval = false;
+      // 2. Check if the newest step is explicitly suspended waiting for user input
+      const isAwaitingInput =
+        newestStep?.status === 'WAITING_FOR_INPUT' ||
+        newestStep?.type === 'WAITING_FOR_INPUT' ||
+        (newestStep?.tool_calls && newestStep.tool_calls.some((tc: any) => tc.name === 'ask_question' && newestStep.status !== 'DONE'));
 
-      // Check tool calls (ask_question or RequestFeedback)
-      for (const step of parsedSteps.slice(0, 5)) {
-        if (step.tool_calls && step.tool_calls.length > 0) {
-          for (const tc of step.tool_calls) {
-            if (tc.name === 'ask_question') needsApproval = true;
-            if (tc.args && typeof tc.args === 'object') {
-              if (tc.args.ArtifactMetadata?.RequestFeedback === true) needsApproval = true;
-            }
-          }
-        }
-        if (step.status === 'WAITING_FOR_INPUT' || step.type === 'WAITING_FOR_INPUT') {
-          needsApproval = true;
-        }
-      }
-
-      // Check text for permission phrases
-      const textSample = (newestStep?.content || '').toLowerCase();
-      if (
-        textSample.includes('waiting for user input') ||
-        textSample.includes('allow running this command') ||
-        textSample.includes('allow running') ||
-        textSample.includes('permission required') ||
-        textSample.includes('action required') ||
-        textSample.includes('do you want to proceed') ||
-        textSample.includes('confirm before proceeding')
-      ) {
-        needsApproval = true;
-      }
-
-      if (needsApproval) {
+      if (isAwaitingInput) {
         this.isWaitingApproval = true;
         return {
           agent: 'Antigravity',
@@ -287,18 +255,18 @@ export class AgentWatcherService {
         };
       }
 
-      // 3. If transcript hasn't changed in > 60s and no active background tasks, idle
-      if (ageSeconds > 60 && !hasActiveTask) {
-        this.isWaitingApproval = false;
-        return null;
+      // 3. If newest step is a completed response without tool calls, agent turn is DONE
+      if (newestStep?.type === 'PLANNER_RESPONSE' && (!newestStep.tool_calls || newestStep.tool_calls.length === 0)) {
+        if (!hasActiveTask) {
+          this.isWaitingApproval = false;
+          return null; // Turn finished cleanly -> transitions to completed
+        }
       }
 
-      // 4. If newest step is finished PLANNER_RESPONSE without tool calls and age > 8s
-      if (newestStep?.type === 'PLANNER_RESPONSE' && (!newestStep.tool_calls || newestStep.tool_calls.length === 0)) {
-        if (ageSeconds > 8 && !hasActiveTask) {
-          this.isWaitingApproval = false;
-          return null; // Turn finished cleanly
-        }
+      // 4. If transcript hasn't changed in > 45s and no active background tasks, idle
+      if (ageSeconds > 45 && !hasActiveTask) {
+        this.isWaitingApproval = false;
+        return null;
       }
 
       // 5. Extract latest tool call action description
