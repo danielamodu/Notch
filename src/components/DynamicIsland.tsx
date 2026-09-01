@@ -50,7 +50,20 @@ export const DynamicIsland: React.FC = () => {
 
   const collapseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Handle hover over compact pill and auto-collapse on mouse leave with click-through passthrough
+  // Sync mode to Electron window bounds & mouse capture
+  useEffect(() => {
+    const api = (window as any).islandAPI;
+    if (islandMode === 'expanded') {
+      api?.setIgnoreMouseEvents?.(false);
+      api?.setIslandState?.('expanded');
+    } else if (islandMode === 'glance') {
+      api?.setIslandState?.('glance');
+    } else {
+      api?.setIslandState?.('compact');
+    }
+  }, [islandMode]);
+
+  // Handle hover over compact pill with click-through passthrough
   const handleMouseEnter = () => {
     const api = (window as any).islandAPI;
     api?.setIgnoreMouseEvents?.(false);
@@ -62,20 +75,17 @@ export const DynamicIsland: React.FC = () => {
   };
 
   const handleMouseLeave = () => {
-    const api = (window as any).islandAPI;
-    api?.setIgnoreMouseEvents?.(true, { forward: true });
-
-    if (islandMode === 'expanded') {
-      collapseTimeoutRef.current = setTimeout(() => {
-        setIslandMode('compact');
-      }, 350);
+    // Only pass through clicks if compact/glance - keep expanded window interactive
+    if (islandMode !== 'expanded') {
+      const api = (window as any).islandAPI;
+      api?.setIgnoreMouseEvents?.(true, { forward: true });
     }
   };
 
   const pendingTasksCount = tasks.filter((t) => !t.completed).length;
   const hasDualActivity = media.isPlaying && focusTimer.isActive;
 
-  // Adaptive Dynamic Island Dimensions (Default 280px closed state)
+  // Adaptive Dynamic Island Dimensions
   const getIslandDimensions = () => {
     const baseWidth = settings.compactWidth || 280;
     if (islandMode === 'compact') {
@@ -109,10 +119,10 @@ export const DynamicIsland: React.FC = () => {
       };
     }
 
-    // Expanded Dropdown - Ultra compact 340x220
+    // Expanded Dropdown - matching Electron window 360x280
     return {
-      width: 340,
-      height: 220,
+      width: 360,
+      height: 270,
       borderRadius: 20,
     };
   };
