@@ -1,0 +1,282 @@
+import { app, BrowserWindow, ipcMain, screen, globalShortcut, shell, powerMonitor } from 'electron';
+import path from 'node:path';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { WindowsMediaService } from './services/mediaService.ts';
+import { ClipboardService } from './services/clipboardService.ts';
+import { ScreenshotService } from './services/screenshotService.ts';
+import { ShelfService } from './services/shelfService.ts';
+import { systemService } from './services/systemService.ts';
+import { notificationService } from './services/notificationService.ts';
+import { agentWatcherService } from './services/agentWatcherService.ts';
+import { agentGatewayService } from './services/agentGatewayService.ts';
+import { windowsHookService } from './services/windowsHookService.ts';
+import { memoryOptimizer } from './services/memoryOptimizer.ts';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+process.env.APP_ROOT = path.join(__dirname, '..');
+
+// Avoid cache locking errors on Windows
+try {
+  const customUserData = path.join(app.getPath('temp'), 'apex-island-app-data');
+  if (!fs.existsSync(customUserData)) {
+    fs.mkdirSync(customUserData, { recursive: true });
+  }
+  app.setPath('userData', customUserData);
+} catch {}
+
+// ── Chromium performance flags ─────────────────────────────────────────────
+app.commandLine.appendSwitch('disable-gpu-cache');
+app.commandLine.appendSwitch('disable-http-cache');
+app.commandLine.appendSwitch('no-sandbox');
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-zero-copy');
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+
+export const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron');
+export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist');
+
+process.env.VITE_PUBLIC = process.env.VITE_DEV_SERVER_URL
+  ? path.join(process.env.APP_ROOT, 'public')
+  : RENDERER_DIST;
+
+let win: BrowserWindow | null = null;
+
+// Services
+const mediaService = new WindowsMediaService();
+const clipboardService = new ClipboardService();
+const screenshotService = new ScreenshotService();
+const shelfService = new ShelfService();
+
+const COMPACT_WIDTH = 380;
+const COMPACT_HEIGHT = 60;
+const EXPANDED_WIDTH = 360;
+const EXPANDED_HEIGHT = 280;
+
+function createWindow() {
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { x: displayX, y: displayY, width: screenWidth } = primaryDisplay.bounds;
+
+  // TOP DYNAMIC ISLAND WINDOW
+  const initialWidth = COMPACT_WIDTH;
+  const initialHeight = COMPACT_HEIGHT;
+  const xPos = displayX + Math.round((screenWidth - initialWidth) / 2);
+  const yPos = displayY;
+
+  win = new BrowserWindow({
+    width: initialWidth,
+    height: initialHeight,
+    x: xPos,
+    y: yPos,
+    transparent: true,
+    frame: false,
+    hasShadow: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    resizable: false,
+    show: true,
+    webPreferences: {
+      preload: path.join(process.env.APP_ROOT, 'electron', 'preload.cjs'),
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+
+  win.setAlwaysOnTop(true, 'screen-saver');
+  win.moveTop();
+  win.setMenu(null);
+  win.setIgnoreMouseEvents(true, { forward: true });
+
+  if (process.env.VITE_DEV_SERVER_URL) {
+    win.loadURL(process.env.VITE_DEV_SERVER_URL);
+  } else {
+    const indexPath = path.join(RENDERER_DIST, 'index.html');
+    win.loadFile(indexPath);
+  }
+
+  // ── Services & Event Broadcasters ──────────────────────────────────────────
+  mediaService.onUpdate((track) => {
+    win?.webContents.send('media:update', track);
+  });
+  mediaService.startPolling(700);
+
+  clipboardService.onUpdate((items) => {
+    win?.webContents.send('clipboard:update', items);
+  });
+  clipboardService.startPolling(1200);
+
+  screenshotService.onUpdate((items) => {
+    win?.webContents.send('screenshots:update', items);
+  });
+  screenshotService.onNewScreenshot((item) => {
+    win?.webContents.send('screenshots:new', item);
+  });
+
+  shelfService.onUpdate((files) => {
+    win?.webContents.send('shelf:update', files);
+  });
+
+  // System stats & 5s polling
+  systemService.onUpdate((stats) => {
+    win?.webContents.send('system:update', stats);
+  });
+  systemService.onPowerEvent((event) => {
+    win?.webContents.send('system:power', event);
+  });
+  systemService.startPolling(5000);
+
+  // Hook into native Windows Power Events via Electron's powerMonitor
+  powerMonitor.on('on-ac', () => {
+    systemService.poll();
+  });
+  powerMonitor.on('on-battery', () => {
+    systemService.poll();
+  });
+  powerMonitor.on('speed-limit-change', () => {
+    systemService.poll();
+  });
+
+  notificationService.onNewNotification((notif) => {
+    win?.webContents.send('notifications:new', notif);
+  });
+  notificationService.onCallStatusChange((call) => {
+    win?.webContents.send('call:update', call);
+  });
+  notificationService.startPolling(600);
+
+  agentWatcherService.onUpdate((state) => {
+    win?.webContents.send('agent:update', state);
+  });
+  agentWatcherService.startPolling(500);
+
+  // Universal Agent Status Gateway (HTTP Server on port 4141)
+  agentGatewayService.onUpdate((state) => {
+    win?.webContents.send('agent:update', state);
+  });
+
+  // ── Windows Deep Hook Events (koffi Win32 FFI) ──────────────────────────
+  windowsHookService.on('foreground', (info) => {
+    win?.webContents.send('hook:foreground', info);
+    if (!info.isFullscreen) {
+      win?.moveTop();
+    }
+  });
+  windowsHookService.on('volume', (vol) => {
+    win?.webContents.send('hook:volume', vol);
+  });
+  windowsHookService.on('screenlock', (state) => {
+    win?.webContents.send('hook:screenlock', state);
+  });
+
+  // Register global hotkey
+  globalShortcut.register('Alt+`', () => {
+    win?.webContents.send('hotkey:toggle');
+  });
+}
+
+// ── Window sizing & mouse IPC ──────────────────────────────────────────────
+ipcMain.handle('island:setState', (_, state: 'compact' | 'glance' | 'expanded') => {
+  if (!win) return;
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { x: displayX, y: displayY, width: screenWidth } = primaryDisplay.bounds;
+
+  if (state === 'compact') {
+    const x = displayX + Math.round((screenWidth - COMPACT_WIDTH) / 2);
+    win.setBounds({ x, y: displayY, width: COMPACT_WIDTH, height: COMPACT_HEIGHT });
+  } else if (state === 'glance') {
+    const GLANCE_WIDTH = 400;
+    const x = displayX + Math.round((screenWidth - GLANCE_WIDTH) / 2);
+    win.setBounds({ x, y: displayY, width: GLANCE_WIDTH, height: COMPACT_HEIGHT });
+  } else {
+    const x = displayX + Math.round((screenWidth - EXPANDED_WIDTH) / 2);
+    win.setBounds({ x, y: displayY, width: EXPANDED_WIDTH, height: EXPANDED_HEIGHT });
+  }
+});
+
+// Click-through: Top Island
+ipcMain.handle('island:setIgnoreMouseEvents', (_, ignore: boolean, forward?: { forward: boolean }) => {
+  win?.setIgnoreMouseEvents(ignore, forward);
+});
+
+ipcMain.handle('app:quit', () => {
+  app.quit();
+});
+
+ipcMain.handle('app:openExternal', (_, url: string) => {
+  shell.openExternal(url);
+});
+
+ipcMain.handle('app:showItemInFolder', (_, filePath: string) => {
+  shell.showItemInFolder(filePath);
+});
+
+// Media IPC
+ipcMain.handle('media:get', () => mediaService.getCurrentTrack());
+ipcMain.handle('media:control', (_, action: 'play' | 'pause' | 'toggle' | 'next' | 'previous') =>
+  mediaService.controlMedia(action)
+);
+
+// Clipboard IPC
+ipcMain.handle('clipboard:get', () => clipboardService.getHistory());
+ipcMain.handle('clipboard:copy', (_, content: string) => clipboardService.copyItem(content));
+ipcMain.handle('clipboard:togglePin', (_, id: string) => clipboardService.togglePin(id));
+ipcMain.handle('clipboard:delete', (_, id: string) => clipboardService.removeItem(id));
+ipcMain.handle('clipboard:clear', () => clipboardService.clearAll());
+
+// Screenshots IPC
+ipcMain.handle('screenshots:get', () => screenshotService.getScreenshots());
+ipcMain.handle('screenshots:delete', (_, id: string) => screenshotService.deleteItem(id));
+
+// Shelf IPC
+ipcMain.handle('shelf:get', () => shelfService.getFiles());
+ipcMain.handle('shelf:add', (_, filePath: string) => shelfService.addFile(filePath));
+ipcMain.handle('shelf:remove', (_, id: string) => shelfService.removeFile(id));
+ipcMain.handle('shelf:clear', () => shelfService.clearAll());
+
+ipcMain.on('shelf:startDrag', (event, filePath: string) => {
+  event.sender.startDrag({
+    file: filePath,
+    icon: path.join(process.env.VITE_PUBLIC || '', 'file-icon.png'),
+  });
+});
+
+// System IPC
+ipcMain.handle('system:get', () => systemService.getStats());
+ipcMain.handle('system:trimMemory', () => memoryOptimizer.trimWorkingSet());
+
+app.on('second-instance', () => {
+  if (win) {
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+  }
+});
+
+app.whenReady().then(() => {
+  createWindow();
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+  });
+});
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
+  mediaService.stopPolling();
+  clipboardService.stopPolling();
+  screenshotService.dispose();
+  systemService.stopPolling();
+  notificationService.stopPolling();
+  agentWatcherService.stopPolling();
+  agentGatewayService.dispose();
+  memoryOptimizer.dispose();
+  windowsHookService.dispose();
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
