@@ -16,6 +16,11 @@ import { memoryOptimizer } from './services/memoryOptimizer.ts';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 process.env.APP_ROOT = path.join(__dirname, '..');
 
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  app.quit();
+}
+
 // Avoid cache locking errors on Windows
 try {
   const customUserData = path.join(app.getPath('temp'), 'apex-island-app-data');

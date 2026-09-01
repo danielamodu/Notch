@@ -67,14 +67,14 @@ export class WindowsHookService extends EventEmitter {
       this.user32 = this.koffi.load('user32.dll');
       this.kernel32 = this.koffi.load('kernel32.dll');
 
-      this.GetForegroundWindow = this.user32.func('HWND GetForegroundWindow()');
+      this.GetForegroundWindow = this.user32.func('void* GetForegroundWindow()');
       this.GetWindowTextW = this.user32.func(
-        'int GetWindowTextW(HWND hWnd, char16 *lpString, int nMaxCount)'
+        'int GetWindowTextW(void* hWnd, char16 *lpString, int nMaxCount)'
       );
       this.GetWindowThreadProcessId = this.user32.func(
-        'uint GetWindowThreadProcessId(HWND hWnd, _Out_ uint *lpdwProcessId)'
+        'uint GetWindowThreadProcessId(void* hWnd, _Out_ uint *lpdwProcessId)'
       );
-      this.IsZoomed = this.user32.func('int IsZoomed(HWND hWnd)');
+      this.IsZoomed = this.user32.func('int IsZoomed(void* hWnd)');
       this.OpenProcess = this.kernel32.func(
         'void* OpenProcess(uint dwAccess, int bInherit, uint dwPid)'
       );
