@@ -233,6 +233,7 @@ export const DynamicIsland: React.FC = () => {
                     shelfFiles={shelfFiles}
                     onDeleteScreenshot={deleteScreenshot}
                     onRemoveShelfFile={removeShelfFile}
+                    onAddShelfFile={addShelfFile}
                   />
                 )}
                 {activeTab === 'clipboard' && (

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, screen, globalShortcut, shell, powerMonitor } from 'electron';
+import { app, BrowserWindow, ipcMain, screen, globalShortcut, shell, powerMonitor, nativeImage } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -235,11 +235,44 @@ ipcMain.handle('shelf:add', (_, filePath: string) => shelfService.addFile(filePa
 ipcMain.handle('shelf:remove', (_, id: string) => shelfService.removeFile(id));
 ipcMain.handle('shelf:clear', () => shelfService.clearAll());
 
-ipcMain.on('shelf:startDrag', (event, filePath: string) => {
-  event.sender.startDrag({
-    file: filePath,
-    icon: path.join(process.env.VITE_PUBLIC || '', 'file-icon.png'),
-  });
+ipcMain.on('shelf:startDrag', async (event, filePath: string) => {
+  try {
+    if (!filePath || !fs.existsSync(filePath)) return;
+
+    let dragIcon: Electron.NativeImage | null = null;
+    const ext = path.extname(filePath).toLowerCase();
+
+    // 1. If it's an image file, use the actual image thumbnail
+    if (['.png', '.jpg', '.jpeg', '.webp', '.gif', '.ico'].includes(ext)) {
+      try {
+        const img = nativeImage.createFromPath(filePath);
+        if (!img.isEmpty()) {
+          dragIcon = img.resize({ width: 32, height: 32 });
+        }
+      } catch {}
+    }
+
+    // 2. Otherwise fetch the native OS file icon via app.getFileIcon
+    if (!dragIcon || dragIcon.isEmpty()) {
+      try {
+        dragIcon = await app.getFileIcon(filePath, { size: 'normal' });
+      } catch {}
+    }
+
+    // 3. Fallback: transparent 1x1 image so startDrag never throws
+    if (!dragIcon || dragIcon.isEmpty()) {
+      dragIcon = nativeImage.createFromBuffer(
+        Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64')
+      );
+    }
+
+    event.sender.startDrag({
+      file: filePath,
+      icon: dragIcon,
+    });
+  } catch (err) {
+    console.warn('[Shelf] Drag error:', err);
+  }
 });
 
 // System IPC
