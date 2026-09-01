@@ -50,24 +50,20 @@ const clipboardService = new ClipboardService();
 const screenshotService = new ScreenshotService();
 const shelfService = new ShelfService();
 
-const COMPACT_WIDTH = 380;
-const COMPACT_HEIGHT = 60;
-const EXPANDED_WIDTH = 360;
-const EXPANDED_HEIGHT = 280;
+const WINDOW_WIDTH = 460;
+const WINDOW_HEIGHT = 320;
 
 function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { x: displayX, y: displayY, width: screenWidth } = primaryDisplay.bounds;
 
-  // TOP DYNAMIC ISLAND WINDOW
-  const initialWidth = COMPACT_WIDTH;
-  const initialHeight = COMPACT_HEIGHT;
-  const xPos = displayX + Math.round((screenWidth - initialWidth) / 2);
+  // TOP DYNAMIC ISLAND WINDOW (Stable transparent overlay viewport)
+  const xPos = displayX + Math.round((screenWidth - WINDOW_WIDTH) / 2);
   const yPos = displayY;
 
   win = new BrowserWindow({
-    width: initialWidth,
-    height: initialHeight,
+    width: WINDOW_WIDTH,
+    height: WINDOW_HEIGHT,
     x: xPos,
     y: yPos,
     transparent: true,
@@ -87,7 +83,6 @@ function createWindow() {
   win.setAlwaysOnTop(true, 'screen-saver');
   win.moveTop();
   win.setMenu(null);
-  win.setIgnoreMouseEvents(true, { forward: true });
 
   if (process.env.VITE_DEV_SERVER_URL) {
     win.loadURL(process.env.VITE_DEV_SERVER_URL);

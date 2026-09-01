@@ -50,16 +50,11 @@ export const DynamicIsland: React.FC = () => {
 
   const collapseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Sync mode to Electron window bounds & mouse capture
+  // Ensure mouse events are enabled when expanded
   useEffect(() => {
     const api = (window as any).islandAPI;
     if (islandMode === 'expanded') {
       api?.setIgnoreMouseEvents?.(false);
-      api?.setIslandState?.('expanded');
-    } else if (islandMode === 'glance') {
-      api?.setIslandState?.('glance');
-    } else {
-      api?.setIslandState?.('compact');
     }
   }, [islandMode]);
 
