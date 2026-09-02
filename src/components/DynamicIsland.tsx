@@ -114,17 +114,10 @@ export const DynamicIsland: React.FC = () => {
       };
     }
 
-    // Expanded Dropdown - tailored tightly without excess space, 100% non-scrollable
-    let height = 165;
-    if (activeTab === 'media') {
-      height = 160;
-    } else if (activeTab === 'focus') {
-      height = 165;
-    }
-
+    // Expanded Dropdown - matching exact 180px height
     return {
       width: 360,
-      height,
+      height: 180,
       borderRadius: 20,
     };
   };

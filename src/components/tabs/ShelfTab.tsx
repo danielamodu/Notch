@@ -68,14 +68,14 @@ export const ShelfTab: React.FC<ShelfTabProps> = ({
   const allItems = [
     ...screenshots.map((s) => ({ type: 'screenshot' as const, ...s })),
     ...shelfFiles.map((f) => ({ type: 'file' as const, ...f })),
-  ].slice(0, 4);
+  ];
 
   return (
     <div
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className="flex flex-col justify-between h-full px-3.5 pt-1.5 pb-3 text-white select-none overflow-hidden gap-1.5 relative"
+      className="flex flex-col h-full px-3.5 pt-1.5 pb-2.5 text-white select-none gap-1.5 relative overflow-hidden"
     >
       {isDraggingOver ? (
         <div className="flex-1 flex flex-col items-center justify-center rounded-xl bg-neutral-900 border-2 border-dashed border-indigo-400 text-center p-2">
@@ -89,18 +89,18 @@ export const ShelfTab: React.FC<ShelfTabProps> = ({
           <span className="text-[10px] text-neutral-500">Drag files here to stage or copy</span>
         </div>
       ) : (
-        <div className="grid grid-cols-4 gap-2 flex-1 items-center overflow-hidden">
+        <div className="grid grid-cols-4 gap-2 flex-1 overflow-y-auto pr-0.5 custom-scrollbar">
           {allItems.map((item) => (
             <div
               key={item.id}
               draggable={!!(item as any).filePath}
               onDragStart={() => (item as any).filePath && handleStartDrag((item as any).filePath)}
-              className="group relative aspect-video rounded-lg bg-neutral-900 overflow-hidden border border-white/5 cursor-grab active:cursor-grabbing hover:border-white/20 transition flex items-center justify-center"
+              className="group relative aspect-video rounded-lg bg-neutral-900 overflow-hidden border border-white/5 cursor-grab active:cursor-grabbing hover:border-white/20 transition flex items-center justify-center shrink-0"
             >
               {item.type === 'screenshot' && (item as any).dataUrl ? (
                 <img src={(item as any).dataUrl} alt="" className="size-full object-cover" />
               ) : (
-                <span className="text-[9px] text-neutral-300 truncate max-w-[60px] px-1">
+                <span className="text-[9px] text-neutral-300 truncate max-w-[60px] px-1 font-mono">
                   {item.name}
                 </span>
               )}

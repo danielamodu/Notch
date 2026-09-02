@@ -25,29 +25,27 @@ export const ClipboardTab: React.FC<ClipboardTabProps> = ({
     setTimeout(() => setCopiedId(null), 1500);
   };
 
-  const visibleItems = items.slice(0, 3);
-
   return (
-    <div className="flex flex-col justify-between h-full px-3.5 pt-1.5 pb-3 text-white select-none overflow-hidden gap-1.5">
-      <div className="flex items-center justify-between border-b border-white/5 pb-1 text-[11px] text-neutral-400">
+    <div className="flex flex-col h-full px-3.5 pt-1.5 pb-2.5 text-white select-none gap-1.5 overflow-hidden">
+      <div className="flex items-center justify-between border-b border-white/5 pb-1 text-[11px] text-neutral-400 shrink-0">
         <span>Recent Clips ({items.length})</span>
         {items.length > 0 && (
           <button onClick={onClear} className="hover:text-rose-400 text-[10px] transition">
-            Clear
+            Clear All
           </button>
         )}
       </div>
 
-      <div className="flex flex-col gap-1 overflow-hidden flex-1 justify-center">
-        {visibleItems.length === 0 ? (
-          <div className="flex items-center justify-center py-4 text-neutral-500 text-[11px]">
+      <div className="flex flex-col gap-1 overflow-y-auto flex-1 pr-0.5 custom-scrollbar">
+        {items.length === 0 ? (
+          <div className="flex items-center justify-center py-6 text-neutral-500 text-[11px]">
             Clipboard history is empty
           </div>
         ) : (
-          visibleItems.map((item) => (
+          items.map((item) => (
             <div
               key={item.id}
-              className="group flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-neutral-900/80 hover:bg-neutral-850 border border-white/5 transition"
+              className="group flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-neutral-900/80 hover:bg-neutral-850 border border-white/5 transition shrink-0"
             >
               <div
                 onClick={() => handleCopy(item)}
