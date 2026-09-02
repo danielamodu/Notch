@@ -81,6 +81,10 @@ export class WindowsHookService extends EventEmitter {
       this.CloseHandle = this.kernel32.func('int CloseHandle(void* h)');
 
       try {
+        this.GetKeyState = this.user32.func('short GetKeyState(int nVirtKey)');
+      } catch {}
+
+      try {
         this.OpenInputDesktop = this.user32.func(
           'void* OpenInputDesktop(uint dwFlags, int fInherit, uint dwDesiredAccess)'
         );
@@ -105,6 +109,7 @@ export class WindowsHookService extends EventEmitter {
       this.startForegroundHook();
       this.startVolumeHook();
       this.startScreenLockHook();
+      this.startCapsLockHook();
     } catch (err) {
       console.warn('[WindowsHookService] Koffi init failed:', err);
       this.startFallbackPolling();
@@ -222,6 +227,25 @@ export class WindowsHookService extends EventEmitter {
     };
 
     this.lockTimer = setInterval(poll, 1000);
+    poll();
+  }
+
+  // ── 4. CAPS LOCK HOOK ─────────────────────────────────────────────────────
+  private startCapsLockHook() {
+    let lastCaps: boolean | null = null;
+    const poll = () => {
+      try {
+        if (this.GetKeyState) {
+          const isCaps = (this.GetKeyState(0x14) & 0x0001) !== 0;
+          if (lastCaps !== null && isCaps !== lastCaps) {
+            this.emit('capslock', { enabled: isCaps });
+          }
+          lastCaps = isCaps;
+        }
+      } catch {}
+    };
+
+    setInterval(poll, 500);
     poll();
   }
 

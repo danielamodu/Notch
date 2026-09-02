@@ -129,6 +129,26 @@ const API = {
     ipcRenderer.on('hook:screenlock', handler);
     return () => ipcRenderer.removeListener('hook:screenlock', handler);
   },
+  onCapsLock: (callback) => {
+    const handler = (_, data) => callback(data);
+    ipcRenderer.on('hook:capslock', handler);
+    return () => ipcRenderer.removeListener('hook:capslock', handler);
+  },
+  onDownloadProgress: (callback) => {
+    const handler = (_, data) => callback(data);
+    ipcRenderer.on('download:progress', handler);
+    return () => ipcRenderer.removeListener('download:progress', handler);
+  },
+  onDownloadComplete: (callback) => {
+    const handler = (_, data) => callback(data);
+    ipcRenderer.on('download:complete', handler);
+    return () => ipcRenderer.removeListener('download:complete', handler);
+  },
+  onBluetoothDeviceChange: (callback) => {
+    const handler = (_, data) => callback(data);
+    ipcRenderer.on('device:change', handler);
+    return () => ipcRenderer.removeListener('device:change', handler);
+  },
 };
 
 contextBridge.exposeInMainWorld('islandAPI', API);

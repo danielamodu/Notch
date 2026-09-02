@@ -19,6 +19,14 @@ import {
   GitBranch,
   Wifi,
   Camera,
+  Volume2,
+  VolumeX,
+  Volume1,
+  Headphones,
+  Mouse,
+  Gamepad2,
+  Download,
+  Bluetooth,
 } from 'lucide-react';
 import { BatteryIcon } from './BatteryIcon.tsx';
 import { MediaSourceIcon, MediaSourceBadge, detectMediaSource } from './MediaSourceBadge.tsx';
@@ -35,6 +43,10 @@ import {
   AgentActivityState,
   GitStatus,
   NetworkPing,
+  ActiveDownloadInfo,
+  VolumeHUDState,
+  BluetoothHUDState,
+  CapsLockHUDState,
 } from '../types/island.ts';
 
 interface CompactIslandProps {
@@ -51,6 +63,10 @@ interface CompactIslandProps {
   agentActivity?: AgentActivityState;
   gitStatus?: GitStatus | null;
   networkPing?: NetworkPing;
+  activeDownload?: ActiveDownloadInfo | null;
+  volumeHUD?: VolumeHUDState | null;
+  bluetoothHUD?: BluetoothHUDState | null;
+  capsLockHUD?: CapsLockHUDState | null;
   onControlMedia: (action: 'play' | 'pause' | 'toggle' | 'next' | 'previous') => void;
   onToggleFocus: () => void;
   onClick: () => void;
@@ -70,6 +86,10 @@ export const CompactIsland: React.FC<CompactIslandProps> = ({
   agentActivity,
   gitStatus,
   networkPing,
+  activeDownload,
+  volumeHUD,
+  bluetoothHUD,
+  capsLockHUD,
   onControlMedia,
   onToggleFocus,
   onClick,
@@ -135,8 +155,106 @@ export const CompactIsland: React.FC<CompactIslandProps> = ({
       onClick={onClick}
       className="w-full h-full flex items-center justify-between px-3 cursor-pointer text-white select-none relative group/island bg-black"
     >
-      {/* 1. RECENT NOTIFICATION (Screenshot Captured / Shelf Alert) */}
-      {recentNotification ? (
+      {/* 1. SYSTEM VOLUME HUD FLYOUT */}
+      {volumeHUD ? (
+        <div className="flex items-center justify-between w-full gap-2 px-1">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {volumeHUD.isMuted || volumeHUD.level === 0 ? (
+              <VolumeX className="size-3.5 text-rose-400 shrink-0" />
+            ) : volumeHUD.level < 50 ? (
+              <Volume1 className="size-3.5 text-white shrink-0" />
+            ) : (
+              <Volume2 className="size-3.5 text-white shrink-0" />
+            )}
+            <div className="flex-1 h-1.5 bg-white/20 rounded-full overflow-hidden relative">
+              <div
+                className="h-full bg-white rounded-full transition-all duration-100"
+                style={{ width: `${volumeHUD.level}%` }}
+              />
+            </div>
+          </div>
+          <span className="text-xs font-mono font-semibold text-white shrink-0 min-w-[32px] text-right">
+            {volumeHUD.isMuted ? 'Muted' : `${volumeHUD.level}%`}
+          </span>
+        </div>
+      ) : capsLockHUD ? (
+        /* 2. CAPS LOCK HUD */
+        <div className="flex items-center justify-between w-full gap-2 px-1">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono font-bold uppercase bg-white/10 px-1.5 py-0.5 rounded text-white">
+              ⇪ Caps
+            </span>
+            <span className="text-xs font-semibold text-white">
+              {capsLockHUD.enabled ? 'Caps Lock ON' : 'Caps Lock OFF'}
+            </span>
+          </div>
+          <span
+            className={`text-[9px] font-mono uppercase px-1.5 py-0.5 rounded-full font-bold ${
+              capsLockHUD.enabled
+                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                : 'bg-white/10 text-neutral-400'
+            }`}
+          >
+            {capsLockHUD.enabled ? 'Active' : 'Off'}
+          </span>
+        </div>
+      ) : bluetoothHUD ? (
+        /* 3. BLUETOOTH PERIPHERAL RADAR */
+        <div className="flex items-center justify-between w-full gap-2 px-1">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            {bluetoothHUD.type === 'headphones' ? (
+              <Headphones className="size-3.5 text-indigo-400 shrink-0" />
+            ) : bluetoothHUD.type === 'mouse' ? (
+              <Mouse className="size-3.5 text-blue-400 shrink-0" />
+            ) : bluetoothHUD.type === 'controller' ? (
+              <Gamepad2 className="size-3.5 text-emerald-400 shrink-0" />
+            ) : (
+              <Bluetooth className="size-3.5 text-indigo-400 shrink-0" />
+            )}
+            <div className="flex items-center gap-1.5 min-w-0 truncate">
+              <span className="text-xs font-semibold text-white truncate">
+                {bluetoothHUD.name}
+              </span>
+              <span className="text-[11px] text-neutral-400 font-mono shrink-0">
+                • {bluetoothHUD.connected ? 'Connected' : 'Disconnected'}
+              </span>
+            </div>
+          </div>
+          <span
+            className={`text-[9px] font-mono uppercase px-1.5 py-0.5 rounded-full font-bold shrink-0 ${
+              bluetoothHUD.connected
+                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+            }`}
+          >
+            {bluetoothHUD.connected ? 'Paired' : 'Off'}
+          </span>
+        </div>
+      ) : activeDownload && activeDownload.state === 'downloading' ? (
+        /* 4. ACTIVE BROWSER / FILE DOWNLOADS */
+        <div className="flex items-center justify-between w-full gap-2 px-1 overflow-hidden">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <Download className="size-3.5 text-indigo-400 animate-bounce shrink-0" />
+            <div className="flex flex-col min-w-0 flex-1">
+              <div className="flex items-center justify-between text-[11px] font-medium">
+                <span className="truncate text-white max-w-[140px]">
+                  {activeDownload.finalName}
+                </span>
+                <span className="text-neutral-400 font-mono text-[10px]">
+                  {activeDownload.speedMbps} MB/s
+                </span>
+              </div>
+              <div className="w-full h-1 bg-white/20 rounded-full overflow-hidden mt-0.5">
+                <div
+                  className="h-full bg-indigo-400 rounded-full transition-all duration-300"
+                  style={{ width: `${activeDownload.progressPercent}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : recentNotification ? (
+        /* 5. RECENT NOTIFICATION (Screenshot Captured / Download Complete / Shelf Alert) */
         <div className="flex items-center justify-between w-full gap-2 overflow-hidden">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <div className="size-5 rounded-[5px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center justify-center shrink-0">
@@ -156,7 +274,7 @@ export const CompactIsland: React.FC<CompactIslandProps> = ({
           </span>
         </div>
       ) : powerEvent ? (
-        /* 2. POWER EVENT (Charger Plugged / Unplugged) */
+        /* 6. POWER EVENT (Charger Plugged / Unplugged) */
         <div className="flex items-center justify-between w-full gap-2 overflow-hidden">
           <div className="flex items-center gap-2 min-w-0">
             <BatteryIcon percent={powerEvent.batteryPercent} isCharging={powerEvent.type === 'plugged'} />
@@ -174,7 +292,7 @@ export const CompactIsland: React.FC<CompactIslandProps> = ({
           </span>
         </div>
       ) : incomingNotification ? (
-        /* 2. INCOMING ACTIONABLE NOTIFICATION (Claude / Antigravity / Chat) */
+        /* 7. INCOMING ACTIONABLE NOTIFICATION (Claude / Antigravity / Chat) */
         <div className="flex items-center justify-between w-full gap-2 overflow-hidden">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             {getNotificationIcon(incomingNotification.type)}
@@ -194,7 +312,7 @@ export const CompactIsland: React.FC<CompactIslandProps> = ({
           </span>
         </div>
       ) : agentActivity?.isActive || (agentActivity && (agentActivity.status === 'awaiting_approval' || agentActivity.status === 'thinking' || agentActivity.status === 'executing' || agentActivity.status === 'working' || agentActivity.status === 'error' || agentActivity.status === 'completed')) ? (
-        /* 3. UNIVERSAL AGENT STATUS (Thinking, Executing, Done, Approval, Error) */
+        /* 8. UNIVERSAL AGENT STATUS (Thinking, Executing, Done, Approval, Error) */
         <div className="flex items-center justify-between w-full gap-2 overflow-hidden">
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <div className="flex items-center gap-1.5 shrink-0">
@@ -237,7 +355,7 @@ export const CompactIsland: React.FC<CompactIslandProps> = ({
           </span>
         </div>
       ) : activeCall?.isActive ? (
-        /* 4. ACTIVE CALL & UNIVERSAL MIC PRIVACY PILL */
+        /* 9. ACTIVE CALL & UNIVERSAL MIC PRIVACY PILL */
         <div className="flex items-center justify-between w-full gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <div className="relative flex items-center justify-center">
@@ -277,7 +395,7 @@ export const CompactIsland: React.FC<CompactIslandProps> = ({
           </button>
         </div>
       ) : hasDualActivity ? (
-        /* 5. DUAL LIVE ACTIVITY (Music Playing + Focus Timer Running) */
+        /* 10. DUAL LIVE ACTIVITY (Music Playing + Focus Timer Running) */
         <div className="flex items-center justify-between w-full gap-2">
           {/* Left: Brand Icon or Album Art */}
           <div className="flex items-center gap-1.5 min-w-0">
@@ -324,7 +442,7 @@ export const CompactIsland: React.FC<CompactIslandProps> = ({
           </div>
         </div>
       ) : focusTimer.isActive ? (
-        /* 6. SOLO FOCUS LIVE ACTIVITY */
+        /* 11. SOLO FOCUS LIVE ACTIVITY */
         <div className="flex items-center justify-between w-full gap-2">
           <div className="flex items-center gap-1.5 min-w-0">
             <div className="relative size-4 flex items-center justify-center shrink-0">
@@ -378,7 +496,7 @@ export const CompactIsland: React.FC<CompactIslandProps> = ({
           </div>
         </div>
       ) : media.title && (media.isPlaying || media.hasActiveMedia) ? (
-        /* 7. SOLO NOW PLAYING WITH DYNAMIC AUDIO WAVE VISUALIZER */
+        /* 12. SOLO NOW PLAYING WITH DYNAMIC AUDIO WAVE VISUALIZER */
         <div className="flex items-center justify-between w-full gap-2">
           <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
             {media.thumbnail ? (
@@ -449,7 +567,7 @@ export const CompactIsland: React.FC<CompactIslandProps> = ({
           </div>
         </div>
       ) : (
-        /* 8. IDLE STATE: SPACIOUS & CLEAN CLOCK, GIT PILL & BATTERY */
+        /* 13. IDLE STATE: TIME & GIT HUD ON LEFT, PING & BATTERY ON RIGHT */
         <div className="flex items-center justify-between w-full px-1.5 overflow-hidden">
           {/* Left: Clock */}
           <div className="flex items-center gap-2 shrink-0">

@@ -115,6 +115,12 @@ export function useIslandData() {
   const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
   const [networkPing, setNetworkPing] = useState<NetworkPing>({ latency: 18, online: true });
 
+  // Deep OS Signals (Downloads, Volume HUD, Bluetooth, CapsLock)
+  const [activeDownload, setActiveDownload] = useState<ActiveDownloadInfo | null>(null);
+  const [volumeHUD, setVolumeHUD] = useState<VolumeHUDState | null>(null);
+  const [bluetoothHUD, setBluetoothHUD] = useState<BluetoothHUDState | null>(null);
+  const [capsLockHUD, setCapsLockHUD] = useState<CapsLockHUDState | null>(null);
+
   // Poll Git Status & Network Ping for closed-state radars
   useEffect(() => {
     const api = (window as any).islandAPI;
@@ -335,6 +341,82 @@ export function useIslandData() {
         api?.setIslandState?.(next);
         return next;
       });
+    });
+
+    let volTimer: NodeJS.Timeout | null = null;
+    const unsubVolume = api.onVolumeChange?.((vol: VolumeHUDState) => {
+      if (!vol) return;
+      setVolumeHUD(vol);
+      setIslandMode('glance');
+      const apiRef = (window as any).islandAPI;
+      apiRef?.setIslandState?.('glance');
+      if (volTimer) clearTimeout(volTimer);
+      volTimer = setTimeout(() => {
+        setVolumeHUD(null);
+        setIslandMode((cur) => {
+          if (cur === 'glance') {
+            apiRef?.setIslandState?.('compact');
+            return 'compact';
+          }
+          return cur;
+        });
+      }, 1600);
+    });
+
+    let capsTimer: NodeJS.Timeout | null = null;
+    const unsubCaps = api.onCapsLock?.((caps: CapsLockHUDState) => {
+      if (!caps) return;
+      setCapsLockHUD(caps);
+      setIslandMode('glance');
+      const apiRef = (window as any).islandAPI;
+      apiRef?.setIslandState?.('glance');
+      if (capsTimer) clearTimeout(capsTimer);
+      capsTimer = setTimeout(() => {
+        setCapsLockHUD(null);
+        setIslandMode((cur) => {
+          if (cur === 'glance') {
+            apiRef?.setIslandState?.('compact');
+            return 'compact';
+          }
+          return cur;
+        });
+      }, 1400);
+    });
+
+    const unsubDownloadProgress = api.onDownloadProgress?.((dl: ActiveDownloadInfo) => {
+      if (!dl) return;
+      setActiveDownload(dl);
+    });
+
+    const unsubDownloadComplete = api.onDownloadComplete?.((dl: ActiveDownloadInfo) => {
+      if (!dl) return;
+      setActiveDownload({ ...dl, state: 'completed', progressPercent: 100 });
+      setRecentNotification({
+        id: dl.id,
+        title: 'Download Complete',
+        subtitle: dl.finalName,
+        type: 'download',
+      });
+      setIslandMode('glance');
+      const apiRef = (window as any).islandAPI;
+      apiRef?.setIslandState?.('glance');
+      setTimeout(() => {
+        setActiveDownload(null);
+        setRecentNotification(null);
+        setIslandMode((cur) => (cur === 'glance' ? 'compact' : cur));
+      }, 4000);
+    });
+
+    const unsubBluetooth = api.onBluetoothDeviceChange?.((dev: BluetoothHUDState) => {
+      if (!dev) return;
+      setBluetoothHUD(dev);
+      setIslandMode('glance');
+      const apiRef = (window as any).islandAPI;
+      apiRef?.setIslandState?.('glance');
+      setTimeout(() => {
+        setBluetoothHUD(null);
+        setIslandMode((cur) => (cur === 'glance' ? 'compact' : cur));
+      }, 3500);
     });
 
     // Git & Network Ping polling
@@ -646,5 +728,9 @@ export function useIslandData() {
     calendarEvents,
     loginGoogle,
     logoutGoogle,
+    activeDownload,
+    volumeHUD,
+    bluetoothHUD,
+    capsLockHUD,
   };
 }

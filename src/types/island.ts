@@ -148,3 +148,26 @@ export interface NetworkPing {
   online: boolean;
 }
 
+export interface ActiveDownloadInfo {
+  id: string;
+  finalName: string;
+  speedMbps: number;
+  progressPercent: number;
+  state: 'downloading' | 'completed' | 'canceled';
+}
+
+export interface VolumeHUDState {
+  level: number;
+  isMuted: boolean;
+}
+
+export interface BluetoothHUDState {
+  name: string;
+  type: 'headphones' | 'mouse' | 'keyboard' | 'controller' | 'device';
+  connected: boolean;
+}
+
+export interface CapsLockHUDState {
+  enabled: boolean;
+}
+

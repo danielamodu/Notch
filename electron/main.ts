@@ -12,6 +12,8 @@ import { agentWatcherService } from './services/agentWatcherService.ts';
 import { agentGatewayService } from './services/agentGatewayService.ts';
 import { windowsHookService } from './services/windowsHookService.ts';
 import { memoryOptimizer } from './services/memoryOptimizer.ts';
+import { downloadWatcherService } from './services/downloadWatcherService.ts';
+import { bluetoothWatcherService } from './services/bluetoothWatcherService.ts';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 process.env.APP_ROOT = path.join(__dirname, '..');
@@ -170,6 +172,25 @@ function createWindow() {
   });
   windowsHookService.on('screenlock', (state) => {
     win?.webContents.send('hook:screenlock', state);
+  });
+  windowsHookService.on('capslock', (caps) => {
+    win?.webContents.send('hook:capslock', caps);
+  });
+
+  // Downloads Watcher
+  downloadWatcherService.on('download:start', (dl) => {
+    win?.webContents.send('download:progress', dl);
+  });
+  downloadWatcherService.on('download:progress', (dl) => {
+    win?.webContents.send('download:progress', dl);
+  });
+  downloadWatcherService.on('download:complete', (dl) => {
+    win?.webContents.send('download:complete', dl);
+  });
+
+  // Bluetooth Devices Watcher
+  bluetoothWatcherService.on('device:change', (dev) => {
+    win?.webContents.send('device:change', dev);
   });
 
   // Register global hotkey

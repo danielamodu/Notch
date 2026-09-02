@@ -52,6 +52,10 @@ export const DynamicIsland: React.FC = () => {
     calendarEvents,
     loginGoogle,
     logoutGoogle,
+    activeDownload,
+    volumeHUD,
+    bluetoothHUD,
+    capsLockHUD,
   } = useIslandData();
 
   const collapseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -184,6 +188,10 @@ export const DynamicIsland: React.FC = () => {
             agentActivity={agentActivity}
             gitStatus={gitStatus}
             networkPing={networkPing}
+            activeDownload={activeDownload}
+            volumeHUD={volumeHUD}
+            bluetoothHUD={bluetoothHUD}
+            capsLockHUD={capsLockHUD}
             onControlMedia={controlMedia}
             onToggleFocus={toggleFocusTimer}
             onClick={expandToContext}
