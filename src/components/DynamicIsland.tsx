@@ -114,10 +114,17 @@ export const DynamicIsland: React.FC = () => {
       };
     }
 
-    // Expanded Dropdown - matching Electron window 360x280
+    // Expanded Dropdown - tailored tightly without excess empty space
+    let height = 220;
+    if (activeTab === 'media') {
+      height = 180;
+    } else if (activeTab === 'focus') {
+      height = 200;
+    }
+
     return {
       width: 360,
-      height: 270,
+      height,
       borderRadius: 20,
     };
   };
