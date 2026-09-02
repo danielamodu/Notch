@@ -150,11 +150,11 @@ export const DynamicIsland: React.FC = () => {
         }}
         transition={{
           type: 'spring',
-          stiffness: 460,
-          damping: 36,
-          mass: 0.7,
+          stiffness: 600,
+          damping: 42,
+          mass: 0.45,
         }}
-        className={`pointer-events-auto relative overflow-hidden bg-black text-white transition-all duration-200 ${
+        className={`pointer-events-auto relative overflow-hidden bg-black text-white transition-all duration-150 ${
           islandMode === 'expanded'
             ? 'border border-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.85)]'
             : 'border-0 shadow-none'
@@ -187,7 +187,7 @@ export const DynamicIsland: React.FC = () => {
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.98 }}
-            transition={{ duration: 0.15 }}
+            transition={{ duration: 0.1, ease: [0.16, 1, 0.3, 1] }}
             className="flex flex-col size-full overflow-hidden bg-black"
           >
             {/* Header / Full-Width Tab Bar */}
@@ -219,52 +219,102 @@ export const DynamicIsland: React.FC = () => {
               </button>
             </div>
 
-            {/* Tab Contents - 100% Non-Scrollable */}
-            <div className="flex-1 overflow-hidden">
-              <AnimatePresence mode="wait">
+            {/* Tab Contents - 100% Non-Scrollable & Instant Cross-Fade */}
+            <div className="flex-1 overflow-hidden relative">
+              <AnimatePresence mode="popLayout" initial={false}>
                 {activeTab === 'media' && (
-                  <NowPlayingTab key="media" media={media} onControl={controlMedia} />
+                  <motion.div
+                    key="media"
+                    initial={{ opacity: 0, y: 2 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -2 }}
+                    transition={{ duration: 0.1, ease: 'easeOut' }}
+                    className="size-full"
+                  >
+                    <NowPlayingTab media={media} onControl={controlMedia} />
+                  </motion.div>
                 )}
                 {activeTab === 'tasks' && (
-                  <TasksTab
+                  <motion.div
                     key="tasks"
-                    tasks={tasks}
-                    onAddTask={addTask}
-                    onToggleTask={toggleTask}
-                    onDeleteTask={deleteTask}
-                  />
+                    initial={{ opacity: 0, y: 2 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -2 }}
+                    transition={{ duration: 0.1, ease: 'easeOut' }}
+                    className="size-full"
+                  >
+                    <TasksTab
+                      tasks={tasks}
+                      onAddTask={addTask}
+                      onToggleTask={toggleTask}
+                      onDeleteTask={deleteTask}
+                    />
+                  </motion.div>
                 )}
                 {activeTab === 'shelf' && (
-                  <ShelfTab
+                  <motion.div
                     key="shelf"
-                    screenshots={screenshots}
-                    shelfFiles={shelfFiles}
-                    onDeleteScreenshot={deleteScreenshot}
-                    onRemoveShelfFile={removeShelfFile}
-                    onAddShelfFile={addShelfFile}
-                  />
+                    initial={{ opacity: 0, y: 2 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -2 }}
+                    transition={{ duration: 0.1, ease: 'easeOut' }}
+                    className="size-full"
+                  >
+                    <ShelfTab
+                      screenshots={screenshots}
+                      shelfFiles={shelfFiles}
+                      onDeleteScreenshot={deleteScreenshot}
+                      onRemoveShelfFile={removeShelfFile}
+                      onAddShelfFile={addShelfFile}
+                    />
+                  </motion.div>
                 )}
                 {activeTab === 'clipboard' && (
-                  <ClipboardTab
+                  <motion.div
                     key="clipboard"
-                    items={clipboardItems}
-                    onCopy={copyClipboard}
-                    onDelete={deleteClipboard}
-                    onTogglePin={togglePinClipboard}
-                    onClear={clearClipboard}
-                  />
+                    initial={{ opacity: 0, y: 2 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -2 }}
+                    transition={{ duration: 0.1, ease: 'easeOut' }}
+                    className="size-full"
+                  >
+                    <ClipboardTab
+                      items={clipboardItems}
+                      onCopy={copyClipboard}
+                      onDelete={deleteClipboard}
+                      onTogglePin={togglePinClipboard}
+                      onClear={clearClipboard}
+                    />
+                  </motion.div>
                 )}
                 {activeTab === 'focus' && (
-                  <FocusTab
+                  <motion.div
                     key="focus"
-                    focusTimer={focusTimer}
-                    onToggleFocus={toggleFocusTimer}
-                    onResetFocus={resetFocusTimer}
-                    onSwitchMode={switchFocusMode}
-                  />
+                    initial={{ opacity: 0, y: 2 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -2 }}
+                    transition={{ duration: 0.1, ease: 'easeOut' }}
+                    className="size-full"
+                  >
+                    <FocusTab
+                      focusTimer={focusTimer}
+                      onToggleFocus={toggleFocusTimer}
+                      onResetFocus={resetFocusTimer}
+                      onSwitchMode={switchFocusMode}
+                    />
+                  </motion.div>
                 )}
                 {activeTab === 'notes' && (
-                  <NotepadTab key="notes" />
+                  <motion.div
+                    key="notes"
+                    initial={{ opacity: 0, y: 2 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -2 }}
+                    transition={{ duration: 0.1, ease: 'easeOut' }}
+                    className="size-full"
+                  >
+                    <NotepadTab />
+                  </motion.div>
                 )}
               </AnimatePresence>
             </div>
