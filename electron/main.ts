@@ -152,10 +152,19 @@ function createWindow() {
   // ── Windows Deep Hook Events (koffi Win32 FFI) ──────────────────────────
   windowsHookService.on('foreground', (info) => {
     win?.webContents.send('hook:foreground', info);
-    if (!info.isFullscreen) {
-      win?.moveTop();
+    if (win && !win.isDestroyed()) {
+      win.setAlwaysOnTop(true, 'screen-saver', 1);
+      win.moveTop();
     }
   });
+
+  // Persistent top-most enforcer (guarantees island is permanently visible on top of all apps)
+  setInterval(() => {
+    if (win && !win.isDestroyed()) {
+      win.moveTop();
+    }
+  }, 1000);
+
   windowsHookService.on('volume', (vol) => {
     win?.webContents.send('hook:volume', vol);
   });
@@ -170,22 +179,8 @@ function createWindow() {
 }
 
 // ── Window sizing & mouse IPC ──────────────────────────────────────────────
-ipcMain.handle('island:setState', (_, state: 'compact' | 'glance' | 'expanded') => {
-  if (!win) return;
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { x: displayX, y: displayY, width: screenWidth } = primaryDisplay.bounds;
-
-  if (state === 'compact') {
-    const x = displayX + Math.round((screenWidth - COMPACT_WIDTH) / 2);
-    win.setBounds({ x, y: displayY, width: COMPACT_WIDTH, height: COMPACT_HEIGHT });
-  } else if (state === 'glance') {
-    const GLANCE_WIDTH = 400;
-    const x = displayX + Math.round((screenWidth - GLANCE_WIDTH) / 2);
-    win.setBounds({ x, y: displayY, width: GLANCE_WIDTH, height: COMPACT_HEIGHT });
-  } else {
-    const x = displayX + Math.round((screenWidth - EXPANDED_WIDTH) / 2);
-    win.setBounds({ x, y: displayY, width: EXPANDED_WIDTH, height: EXPANDED_HEIGHT });
-  }
+ipcMain.handle('island:setState', () => {
+  // Stable 460x320 viewport canvas: React animates layout internally
 });
 
 // Click-through: Top Island
