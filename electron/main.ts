@@ -325,6 +325,10 @@ ipcMain.handle('google:login', async (_, clientId?: string, clientSecret?: strin
   return await googleService.startAuthFlow(clientId, clientSecret);
 });
 
+ipcMain.handle('google:setIcal', (_, icalUrl: string) => {
+  return googleService.setIcalUrl(icalUrl);
+});
+
 ipcMain.handle('google:logout', () => {
   googleService.logout();
   return true;

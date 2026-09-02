@@ -98,6 +98,7 @@ const API = {
   // Google Calendar & Tasks API
   getGoogleStatus: () => ipcRenderer.invoke('google:getStatus'),
   loginGoogle: (clientId, clientSecret) => ipcRenderer.invoke('google:login', clientId, clientSecret),
+  setGoogleIcal: (icalUrl) => ipcRenderer.invoke('google:setIcal', icalUrl),
   logoutGoogle: () => ipcRenderer.invoke('google:logout'),
   getGoogleCalendarEvents: () => ipcRenderer.invoke('google:getCalendarEvents'),
   getGoogleTasks: () => ipcRenderer.invoke('google:getTasks'),

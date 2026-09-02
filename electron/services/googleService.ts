@@ -10,6 +10,7 @@ interface GoogleAuthStore {
   expiresAt?: number;
   clientId?: string;
   clientSecret?: string;
+  icalUrl?: string;
   user?: {
     email: string;
     name: string;
@@ -21,10 +22,6 @@ export class GoogleService {
   private storagePath: string;
   private authData: GoogleAuthStore = {};
   private authServer: http.Server | null = null;
-
-  // Default credentials (can be overridden by user)
-  private readonly DEFAULT_CLIENT_ID =
-    '879482937402-4h8pvm03f7e1s50fkl9a7d8n1m9b8c7e.apps.googleusercontent.com';
   private readonly REDIRECT_URI = 'http://127.0.0.1:4280/callback';
 
   constructor() {
@@ -53,11 +50,18 @@ export class GoogleService {
   }
 
   public getStatus(): GoogleAuthStatus {
-    const isConnected = !!(this.authData.accessToken || this.authData.refreshToken);
+    const isConnected = !!(this.authData.accessToken || this.authData.refreshToken || this.authData.icalUrl);
     return {
       connected: isConnected,
-      user: this.authData.user || null,
+      user: this.authData.user || (this.authData.icalUrl ? { name: 'Google Calendar (iCal)', email: 'Synced via Secret Link' } : null),
     };
+  }
+
+  public setIcalUrl(url: string): boolean {
+    if (!url || !url.trim()) return false;
+    this.authData.icalUrl = url.trim();
+    this.save();
+    return true;
   }
 
   public setCustomCredentials(clientId: string, clientSecret?: string) {
@@ -77,9 +81,12 @@ export class GoogleService {
     }
     this.save();
 
-    const clientId = this.authData.clientId || this.DEFAULT_CLIENT_ID;
+    if (!this.authData.clientId) {
+      return false;
+    }
 
-    // Shutdown any previous auth server
+    const clientId = this.authData.clientId;
+
     if (this.authServer) {
       try {
         this.authServer.close();
@@ -132,7 +139,6 @@ export class GoogleService {
               </html>
             `);
 
-            // Exchange code for tokens
             const success = await this.exchangeCode(code);
             try {
               this.authServer?.close();
@@ -162,7 +168,7 @@ export class GoogleService {
   }
 
   private async exchangeCode(code: string): Promise<boolean> {
-    const clientId = this.authData.clientId || this.DEFAULT_CLIENT_ID;
+    const clientId = this.authData.clientId || '';
     const clientSecret = this.authData.clientSecret || '';
 
     try {
@@ -191,7 +197,6 @@ export class GoogleService {
       }
       this.authData.expiresAt = Date.now() + (data.expires_in || 3600) * 1000;
 
-      // Fetch user profile
       await this.fetchUserProfile();
       this.save();
       return true;
@@ -220,15 +225,13 @@ export class GoogleService {
   private async getValidToken(): Promise<string | null> {
     if (!this.authData.accessToken && !this.authData.refreshToken) return null;
 
-    // Check if token is still valid (with 60s buffer)
     if (this.authData.accessToken && (this.authData.expiresAt || 0) > Date.now() + 60000) {
       return this.authData.accessToken;
     }
 
-    // Refresh token
     if (!this.authData.refreshToken) return this.authData.accessToken || null;
 
-    const clientId = this.authData.clientId || this.DEFAULT_CLIENT_ID;
+    const clientId = this.authData.clientId || '';
     const clientSecret = this.authData.clientSecret || '';
 
     try {
@@ -264,8 +267,17 @@ export class GoogleService {
     this.save();
   }
 
-  // --- GOOGLE CALENDAR API ---
+  // --- GOOGLE CALENDAR API (OAuth + iCal Fallback) ---
   public async getCalendarEvents(): Promise<CalendarEvent[]> {
+    // 1. Try iCal Secret Feed first if configured
+    if (this.authData.icalUrl) {
+      try {
+        const icsEvents = await this.fetchIcalEvents(this.authData.icalUrl);
+        if (icsEvents.length > 0) return icsEvents;
+      } catch {}
+    }
+
+    // 2. Try OAuth Token
     const token = await this.getValidToken();
     if (!token) return [];
 
@@ -289,7 +301,6 @@ export class GoogleService {
         const end = item.end?.dateTime || item.end?.date || '';
         const isAllDay = !item.start?.dateTime;
 
-        // Extract Google Meet or Zoom link
         let meetLink = item.hangoutLink || '';
         if (!meetLink && item.description) {
           const match = item.description.match(/https:\/\/[^\s]+(meet\.google\.com|zoom\.us)[^\s]*/i);
@@ -311,6 +322,77 @@ export class GoogleService {
     } catch {
       return [];
     }
+  }
+
+  private async fetchIcalEvents(icalUrl: string): Promise<CalendarEvent[]> {
+    const res = await fetch(icalUrl);
+    if (!res.ok) return [];
+
+    const text = await res.text();
+    const events: CalendarEvent[] = [];
+
+    const vevents = text.split('BEGIN:VEVENT');
+    const now = new Date();
+
+    for (let i = 1; i < vevents.length; i++) {
+      const chunk = vevents[i].split('END:VEVENT')[0];
+      const summaryMatch = chunk.match(/SUMMARY:(.*)/);
+      const startMatch = chunk.match(/DTSTART.*:(.*)/);
+      const endMatch = chunk.match(/DTEND.*:(.*)/);
+      const descMatch = chunk.match(/DESCRIPTION:(.*)/);
+      const locMatch = chunk.match(/LOCATION:(.*)/);
+
+      const summary = summaryMatch ? summaryMatch[1].trim() : 'Event';
+      const rawStart = startMatch ? startMatch[1].trim() : '';
+      const rawEnd = endMatch ? endMatch[1].trim() : '';
+
+      const parseIcalDate = (dStr: string) => {
+        if (!dStr) return new Date();
+        if (dStr.length === 8) {
+          // YYYYMMDD
+          return new Date(
+            parseInt(dStr.slice(0, 4)),
+            parseInt(dStr.slice(4, 6)) - 1,
+            parseInt(dStr.slice(6, 8))
+          );
+        }
+        // YYYYMMDDTHHMMSSZ
+        const year = parseInt(dStr.slice(0, 4));
+        const month = parseInt(dStr.slice(4, 6)) - 1;
+        const day = parseInt(dStr.slice(6, 8));
+        const hour = parseInt(dStr.slice(9, 11)) || 0;
+        const min = parseInt(dStr.slice(11, 13)) || 0;
+        return new Date(Date.UTC(year, month, day, hour, min));
+      };
+
+      const startDate = parseIcalDate(rawStart);
+      const endDate = parseIcalDate(rawEnd);
+
+      // Only show events within next 7 days
+      if (startDate.getTime() >= now.getTime() - 3600000 && startDate.getTime() <= now.getTime() + 7 * 86400000) {
+        let meetLink = '';
+        if (descMatch) {
+          const m = descMatch[1].match(/https:\/\/[^\s]+(meet\.google\.com|zoom\.us)[^\s]*/i);
+          if (m) meetLink = m[0];
+        }
+        if (!meetLink && locMatch) {
+          const m = locMatch[1].match(/https:\/\/[^\s]+(meet\.google\.com|zoom\.us)[^\s]*/i);
+          if (m) meetLink = m[0];
+        }
+
+        events.push({
+          id: `ical-${i}-${rawStart}`,
+          summary,
+          start: startDate.toISOString(),
+          end: endDate.toISOString(),
+          isAllDay: rawStart.length === 8,
+          location: locMatch ? locMatch[1].trim() : undefined,
+          meetLink,
+        });
+      }
+    }
+
+    return events.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
   }
 
   // --- GOOGLE TASKS API ---

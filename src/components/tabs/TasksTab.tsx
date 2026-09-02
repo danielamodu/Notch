@@ -10,7 +10,8 @@ import {
   LogOut,
   Sparkles,
   Loader2,
-  ChevronRight,
+  Link,
+  Key,
 } from 'lucide-react';
 import { TaskItem, CalendarEvent, GoogleAuthStatus } from '../../types/island.ts';
 
@@ -22,6 +23,7 @@ interface TasksTabProps {
   onToggleTask: (id: string) => void;
   onDeleteTask: (id: string) => void;
   onLoginGoogle?: (clientId?: string, clientSecret?: string) => Promise<boolean>;
+  onSetIcalUrl?: (url: string) => Promise<boolean>;
   onLogoutGoogle?: () => Promise<void>;
 }
 
@@ -33,12 +35,15 @@ export const TasksTab: React.FC<TasksTabProps> = ({
   onToggleTask,
   onDeleteTask,
   onLoginGoogle,
+  onSetIcalUrl,
   onLogoutGoogle,
 }) => {
   const [subView, setSubView] = useState<'tasks' | 'calendar'>('tasks');
   const [newTitle, setNewTitle] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
+  const [authMode, setAuthMode] = useState<'ical' | 'oauth'>('ical');
+  const [icalInput, setIcalInput] = useState('');
   const [customClientId, setCustomClientId] = useState('');
   const [customSecret, setCustomSecret] = useState('');
 
@@ -49,10 +54,21 @@ export const TasksTab: React.FC<TasksTabProps> = ({
     setNewTitle('');
   };
 
-  const handleStartLogin = async () => {
+  const handleSaveIcal = async () => {
+    if (!icalInput.trim()) return;
+    const api = (window as any).islandAPI;
+    if (api?.setGoogleIcal) {
+      await api.setGoogleIcal(icalInput.trim());
+      setShowConfigModal(false);
+      setSubView('calendar');
+    }
+  };
+
+  const handleStartOAuth = async () => {
+    if (!customClientId.trim()) return;
     setIsLoggingIn(true);
     try {
-      await onLoginGoogle?.(customClientId || undefined, customSecret || undefined);
+      await onLoginGoogle?.(customClientId.trim(), customSecret.trim() || undefined);
       setShowConfigModal(false);
     } finally {
       setIsLoggingIn(false);
@@ -109,7 +125,7 @@ export const TasksTab: React.FC<TasksTabProps> = ({
           <div className="flex items-center gap-1.5 text-[10px] font-mono">
             <span className="text-emerald-400 flex items-center gap-1">
               <span className="size-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              {googleAuth.user?.name ? googleAuth.user.name.split(' ')[0] : 'Google'}
+              {googleAuth.user?.name ? googleAuth.user.name.split(' ')[0] : 'Synced'}
             </span>
             <button
               onClick={() => onLogoutGoogle?.()}
@@ -132,31 +148,76 @@ export const TasksTab: React.FC<TasksTabProps> = ({
 
       {/* 2. MAIN VIEW CONTENT */}
       {showConfigModal ? (
-        /* GOOGLE AUTH SETUP MODAL */
-        <div className="flex-1 flex flex-col justify-between bg-neutral-900/90 rounded-xl p-2.5 border border-white/10">
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-semibold text-white">Connect Google Calendar & Tasks</span>
-            <span className="text-[10px] text-neutral-400">
-              Sign in with your Google account to sync meetings and 2-way tasks directly in Notch.
-            </span>
-          </div>
-
-          <div className="flex items-center justify-end gap-2 mt-2">
+        /* GOOGLE CONNECTION SETUP MODAL */
+        <div className="flex-1 flex flex-col justify-between bg-neutral-900/95 rounded-xl p-2.5 border border-white/10 overflow-hidden">
+          <div className="flex items-center justify-between border-b border-white/5 pb-1">
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setAuthMode('ical')}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition ${
+                  authMode === 'ical' ? 'bg-white/20 text-white font-semibold' : 'text-neutral-400'
+                }`}
+              >
+                <Link className="size-2.5" />
+                <span>Secret iCal Link (Easiest)</span>
+              </button>
+              <button
+                onClick={() => setAuthMode('oauth')}
+                className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition ${
+                  authMode === 'oauth' ? 'bg-white/20 text-white font-semibold' : 'text-neutral-400'
+                }`}
+              >
+                <Key className="size-2.5" />
+                <span>OAuth 2.0</span>
+              </button>
+            </div>
             <button
               onClick={() => setShowConfigModal(false)}
-              className="px-2.5 py-1 rounded-lg text-[10px] text-neutral-400 hover:text-white"
+              className="text-neutral-400 hover:text-white text-xs px-1"
             >
-              Cancel
-            </button>
-            <button
-              onClick={handleStartLogin}
-              disabled={isLoggingIn}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white text-black font-semibold text-xs hover:bg-neutral-200 transition disabled:opacity-50"
-            >
-              {isLoggingIn ? <Loader2 className="size-3 animate-spin" /> : <Sparkles className="size-3 text-indigo-600" />}
-              <span>{isLoggingIn ? 'Connecting...' : 'Sign in with Google'}</span>
+              ✕
             </button>
           </div>
+
+          {authMode === 'ical' ? (
+            <div className="flex flex-col gap-1.5 py-1">
+              <span className="text-[10px] text-neutral-300 leading-tight">
+                In Google Calendar $\rightarrow$ Settings $\rightarrow$ Integrate Calendar $\rightarrow$ Copy <b>"Secret address in iCal format"</b>:
+              </span>
+              <input
+                type="text"
+                placeholder="https://calendar.google.com/calendar/ical/.../basic.ics"
+                value={icalInput}
+                onChange={(e) => setIcalInput(e.target.value)}
+                className="w-full bg-black/60 border border-white/10 rounded-lg px-2 py-1 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-indigo-400"
+              />
+              <button
+                onClick={handleSaveIcal}
+                disabled={!icalInput.trim()}
+                className="w-full py-1 rounded-lg bg-white text-black font-semibold text-xs hover:bg-neutral-200 transition disabled:opacity-40"
+              >
+                Save & Sync Calendar
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1 py-1">
+              <input
+                type="text"
+                placeholder="Google OAuth Client ID..."
+                value={customClientId}
+                onChange={(e) => setCustomClientId(e.target.value)}
+                className="w-full bg-black/60 border border-white/10 rounded-lg px-2 py-1 text-[11px] text-white placeholder-neutral-500 focus:outline-none"
+              />
+              <button
+                onClick={handleStartOAuth}
+                disabled={isLoggingIn || !customClientId.trim()}
+                className="w-full py-1 rounded-lg bg-white text-black font-semibold text-xs hover:bg-neutral-200 transition disabled:opacity-40 flex items-center justify-center gap-1 mt-1"
+              >
+                {isLoggingIn ? <Loader2 className="size-3 animate-spin" /> : <Sparkles className="size-3" />}
+                <span>Authorize Google</span>
+              </button>
+            </div>
+          )}
         </div>
       ) : subView === 'tasks' ? (
         /* TASKS VIEW */
@@ -240,13 +301,14 @@ export const TasksTab: React.FC<TasksTabProps> = ({
         /* CALENDAR & MEETINGS VIEW */
         <div className="flex flex-col flex-1 overflow-y-auto gap-1 pr-0.5 custom-scrollbar">
           {calendarEvents.length === 0 ? (
-            <div className="flex flex-col items-center justify-center text-neutral-500 text-[11px] py-6 text-center">
+            <div className="flex flex-col items-center justify-center text-neutral-500 text-[11px] py-4 text-center">
               <span>No upcoming events found.</span>
-              {!googleAuth.connected && (
-                <span className="text-[10px] text-neutral-600 mt-0.5">
-                  Link Google Account to view your calendar schedule.
-                </span>
-              )}
+              <button
+                onClick={() => setShowConfigModal(true)}
+                className="mt-1.5 text-[10px] text-indigo-400 hover:underline"
+              >
+                + Link Secret iCal URL
+              </button>
             </div>
           ) : (
             calendarEvents.map((evt) => (
