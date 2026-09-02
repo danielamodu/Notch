@@ -114,11 +114,11 @@ export const DynamicIsland: React.FC = () => {
       };
     }
 
-    // Expanded Dropdown - matching exact 180px height
+    // Expanded Dropdown - matching exact 180px height with Apple-grade squircle
     return {
       width: 360,
       height: 180,
-      borderRadius: 20,
+      borderRadius: 26,
     };
   };
 
@@ -136,7 +136,7 @@ export const DynamicIsland: React.FC = () => {
   return (
     <div
       className="fixed inset-x-0 top-0 flex items-start justify-center z-[999999] pointer-events-none"
-      style={{ paddingTop: `${settings.topMargin || 0}px` }}
+      style={{ paddingTop: `${(settings.topMargin || 0) + (islandMode === 'expanded' ? 6 : 0)}px` }}
     >
       <motion.div
         layout
@@ -154,10 +154,13 @@ export const DynamicIsland: React.FC = () => {
           damping: 36,
           mass: 0.7,
         }}
-        className="pointer-events-auto relative overflow-hidden bg-black text-white border-0 shadow-none"
+        className={`pointer-events-auto relative overflow-hidden bg-black text-white transition-all duration-200 ${
+          islandMode === 'expanded'
+            ? 'border border-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.85)]'
+            : 'border-0 shadow-none'
+        }`}
         style={{
           backgroundColor: '#000000',
-          boxShadow: 'none',
         }}
       >
         {/* COMPACT & GLANCE MODE */}
@@ -188,16 +191,16 @@ export const DynamicIsland: React.FC = () => {
             className="flex flex-col size-full overflow-hidden bg-black"
           >
             {/* Header / Full-Width Tab Bar */}
-            <div className="flex items-center justify-between gap-1 px-3 py-1.5 border-b border-white/5 bg-black shrink-0">
+            <div className="flex items-center justify-between gap-1 px-3.5 pt-2 pb-1 border-b border-white/[0.06] bg-black shrink-0">
               <div className="flex items-center justify-between flex-1 gap-1">
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     title={tab.label}
-                    className={`relative flex-1 flex items-center justify-center h-6 rounded-md transition active:scale-95 ${
+                    className={`relative flex-1 flex items-center justify-center h-6 rounded-lg transition active:scale-95 ${
                       activeTab === tab.id
-                        ? 'bg-neutral-800 text-white font-semibold'
+                        ? 'bg-neutral-800/90 text-white font-semibold shadow-sm'
                         : 'text-neutral-500 hover:text-neutral-300'
                     }`}
                   >
@@ -209,7 +212,7 @@ export const DynamicIsland: React.FC = () => {
               {/* Collapse Button */}
               <button
                 onClick={() => setIslandMode('compact')}
-                className="size-6 flex items-center justify-center rounded-md text-neutral-500 hover:text-neutral-300 transition active:scale-95 shrink-0 ml-1"
+                className="size-6 flex items-center justify-center rounded-lg text-neutral-500 hover:text-neutral-300 transition active:scale-95 shrink-0 ml-1 hover:bg-white/5"
                 title="Collapse Island (Alt + `)"
               >
                 <ChevronUp className="size-3.5" />
