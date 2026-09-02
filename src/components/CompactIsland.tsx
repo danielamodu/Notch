@@ -18,6 +18,7 @@ import {
   MicOff,
   GitBranch,
   Wifi,
+  Camera,
 } from 'lucide-react';
 import { BatteryIcon } from './BatteryIcon.tsx';
 import { MediaSourceIcon, MediaSourceBadge, detectMediaSource } from './MediaSourceBadge.tsx';
@@ -134,8 +135,28 @@ export const CompactIsland: React.FC<CompactIslandProps> = ({
       onClick={onClick}
       className="w-full h-full flex items-center justify-between px-3 cursor-pointer text-white select-none relative group/island bg-black"
     >
-      {/* 1. POWER EVENT (Charger Plugged / Unplugged) */}
-      {powerEvent ? (
+      {/* 1. RECENT NOTIFICATION (Screenshot Captured / Shelf Alert) */}
+      {recentNotification ? (
+        <div className="flex items-center justify-between w-full gap-2 overflow-hidden">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <div className="size-5 rounded-[5px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center justify-center shrink-0">
+              <Camera className="size-3 text-indigo-400" />
+            </div>
+            <div className="flex items-center gap-1.5 min-w-0 truncate">
+              <span className="text-xs font-semibold text-white truncate">
+                {recentNotification.title || 'Screenshot Captured'}
+              </span>
+              <span className="text-xs text-neutral-400 font-mono truncate">
+                • {recentNotification.subtitle || 'Saved to Shelf'}
+              </span>
+            </div>
+          </div>
+          <span className="text-[10px] font-mono uppercase bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded-full shrink-0">
+            View
+          </span>
+        </div>
+      ) : powerEvent ? (
+        /* 2. POWER EVENT (Charger Plugged / Unplugged) */
         <div className="flex items-center justify-between w-full gap-2 overflow-hidden">
           <div className="flex items-center gap-2 min-w-0">
             <BatteryIcon percent={powerEvent.batteryPercent} isCharging={powerEvent.type === 'plugged'} />

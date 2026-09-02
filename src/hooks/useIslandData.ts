@@ -226,10 +226,18 @@ export function useIslandData() {
         type: 'screenshot',
       });
       setIslandMode('glance');
+      const apiRef = (window as any).islandAPI;
+      apiRef?.setIslandState?.('glance');
       setTimeout(() => {
         setRecentNotification(null);
-        setIslandMode((cur) => (cur === 'glance' ? 'compact' : cur));
-      }, 3500);
+        setIslandMode((cur) => {
+          if (cur === 'glance') {
+            apiRef?.setIslandState?.('compact');
+            return 'compact';
+          }
+          return cur;
+        });
+      }, 4000);
     });
 
     const unsubShelf = api.onShelfUpdate?.((files: ShelfEntry[]) => {

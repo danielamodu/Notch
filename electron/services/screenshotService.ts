@@ -19,10 +19,13 @@ export class ScreenshotService {
   private lastImageHash: string = '';
   private listeners: ((items: ScreenshotItem[]) => void)[] = [];
   private onNewScreenshotListener?: (item: ScreenshotItem) => void;
+  private clipboardPollInterval: NodeJS.Timeout | null = null;
 
   constructor() {
     this.initWatchers();
     this.scanRecentScreenshots();
+    // Actively monitor clipboard for Snipping Tool (Win+Shift+S) screenshots
+    this.clipboardPollInterval = setInterval(() => this.checkClipboardImage(), 800);
   }
 
   public onUpdate(listener: (items: ScreenshotItem[]) => void) {
@@ -38,9 +41,12 @@ export class ScreenshotService {
     const dirs = [
       path.join(userHome, 'Pictures', 'Screenshots'),
       path.join(userHome, 'OneDrive', 'Pictures', 'Screenshots'),
+      path.join(userHome, 'OneDrive - Personal', 'Pictures', 'Screenshots'),
+      path.join(userHome, 'Pictures'),
       path.join(userHome, 'Videos', 'Captures'),
+      path.join(userHome, 'Downloads'),
     ];
-    return dirs.filter((d) => fs.existsSync(d));
+    return Array.from(new Set(dirs.filter((d) => fs.existsSync(d))));
   }
 
   private initWatchers() {
@@ -68,6 +74,9 @@ export class ScreenshotService {
       const stats = fs.statSync(fullPath);
       if (stats.size === 0) return;
 
+      // Only notify for genuinely new files (created within last 15 seconds)
+      if (Date.now() - stats.mtimeMs > 15000) return;
+
       const nImage = nativeImage.createFromPath(fullPath);
       if (nImage.isEmpty()) return;
 
@@ -85,7 +94,7 @@ export class ScreenshotService {
       // Check if already in list
       if (!this.screenshots.some((s) => s.filePath === fullPath)) {
         this.screenshots.unshift(item);
-        this.screenshots = this.screenshots.slice(0, 20);
+        this.screenshots = this.screenshots.slice(0, 25);
         this.notify();
         this.onNewScreenshotListener?.(item);
       }
@@ -124,7 +133,7 @@ export class ScreenshotService {
     }
 
     this.screenshots.sort((a, b) => b.timestamp - a.timestamp);
-    this.screenshots = this.screenshots.slice(0, 20);
+    this.screenshots = this.screenshots.slice(0, 25);
     this.notify();
   }
 
@@ -133,17 +142,17 @@ export class ScreenshotService {
       const img = clipboard.readImage();
       if (!img.isEmpty()) {
         const dataUrl = img.resize({ width: 240 }).toDataURL();
-        if (dataUrl !== this.lastImageHash) {
+        if (dataUrl !== this.lastImageHash && dataUrl.length > 50) {
           this.lastImageHash = dataUrl;
           const item: ScreenshotItem = {
             id: Math.random().toString(36).substring(2, 9),
             dataUrl,
-            name: `Clipboard Image ${new Date().toLocaleTimeString()}`,
+            name: `Screenshot ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
             timestamp: Date.now(),
             isRecent: true,
           };
           this.screenshots.unshift(item);
-          this.screenshots = this.screenshots.slice(0, 20);
+          this.screenshots = this.screenshots.slice(0, 25);
           this.notify();
           this.onNewScreenshotListener?.(item);
         }
@@ -167,6 +176,10 @@ export class ScreenshotService {
   }
 
   public dispose() {
+    if (this.clipboardPollInterval) {
+      clearInterval(this.clipboardPollInterval);
+      this.clipboardPollInterval = null;
+    }
     for (const w of this.watchers) {
       w.close();
     }
