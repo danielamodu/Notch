@@ -1,6 +1,6 @@
 export type IslandMode = 'compact' | 'glance' | 'expanded';
 
-export type IslandTab = 'media' | 'tasks' | 'shelf' | 'clipboard' | 'focus' | 'system' | 'settings';
+export type IslandTab = 'media' | 'tasks' | 'shelf' | 'clipboard' | 'focus' | 'notes' | 'system' | 'settings';
 
 export interface MediaTrack {
   title: string;

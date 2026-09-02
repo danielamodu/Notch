@@ -1,13 +1,13 @@
 import React, { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Music, CheckSquare, FolderHeart, ClipboardList, Timer, Settings as SettingsIcon, ChevronUp } from 'lucide-react';
+import { Music, CheckSquare, FolderHeart, ClipboardList, Timer, StickyNote, ChevronUp } from 'lucide-react';
 import { CompactIsland } from './CompactIsland.tsx';
 import { NowPlayingTab } from './tabs/NowPlayingTab.tsx';
 import { TasksTab } from './tabs/TasksTab.tsx';
 import { ShelfTab } from './tabs/ShelfTab.tsx';
 import { ClipboardTab } from './tabs/ClipboardTab.tsx';
 import { FocusTab } from './tabs/FocusTab.tsx';
-import { SystemTab } from './tabs/SystemTab.tsx';
+import { NotepadTab } from './tabs/NotepadTab.tsx';
 import { IslandTab } from '../types/island.ts';
 import { useIslandData } from '../hooks/useIslandData.ts';
 
@@ -130,7 +130,7 @@ export const DynamicIsland: React.FC = () => {
     { id: 'shelf', label: 'Shelf & Screenshots', icon: <FolderHeart className="size-3.5" />, badge: screenshots.length + shelfFiles.length },
     { id: 'clipboard', label: 'Clipboard History', icon: <ClipboardList className="size-3.5" />, badge: clipboardItems.length },
     { id: 'focus', label: 'Focus Timer', icon: <Timer className="size-3.5" /> },
-    { id: 'system', label: 'System Settings', icon: <SettingsIcon className="size-3.5" /> },
+    { id: 'notes', label: 'Scratchpad & Notes', icon: <StickyNote className="size-3.5" /> },
   ];
 
   return (
@@ -260,13 +260,8 @@ export const DynamicIsland: React.FC = () => {
                     onSwitchMode={switchFocusMode}
                   />
                 )}
-                {activeTab === 'system' && (
-                  <SystemTab
-                    key="system"
-                    system={system}
-                    settings={settings}
-                    onUpdateSettings={(newS) => setSettings((prev) => ({ ...prev, ...newS }))}
-                  />
+                {activeTab === 'notes' && (
+                  <NotepadTab key="notes" />
                 )}
               </AnimatePresence>
             </div>
