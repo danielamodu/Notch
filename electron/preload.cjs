@@ -95,6 +95,16 @@ const API = {
     return () => ipcRenderer.removeListener('agent:update', handler);
   },
 
+  // Google Calendar & Tasks API
+  getGoogleStatus: () => ipcRenderer.invoke('google:getStatus'),
+  loginGoogle: (clientId, clientSecret) => ipcRenderer.invoke('google:login', clientId, clientSecret),
+  logoutGoogle: () => ipcRenderer.invoke('google:logout'),
+  getGoogleCalendarEvents: () => ipcRenderer.invoke('google:getCalendarEvents'),
+  getGoogleTasks: () => ipcRenderer.invoke('google:getTasks'),
+  createGoogleTask: (title) => ipcRenderer.invoke('google:createTask', title),
+  toggleGoogleTask: (id, completed) => ipcRenderer.invoke('google:toggleTask', id, completed),
+  deleteGoogleTask: (id) => ipcRenderer.invoke('google:deleteTask', id),
+
   // Global hotkey event
   onToggleHotkey: (callback) => {
     const handler = () => callback();

@@ -48,6 +48,10 @@ export const DynamicIsland: React.FC = () => {
     agentActivity,
     gitStatus,
     networkPing,
+    googleAuth,
+    calendarEvents,
+    loginGoogle,
+    logoutGoogle,
   } = useIslandData();
 
   const collapseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -248,9 +252,13 @@ export const DynamicIsland: React.FC = () => {
                   >
                     <TasksTab
                       tasks={tasks}
+                      calendarEvents={calendarEvents}
+                      googleAuth={googleAuth}
                       onAddTask={addTask}
                       onToggleTask={toggleTask}
                       onDeleteTask={deleteTask}
+                      onLoginGoogle={loginGoogle}
+                      onLogoutGoogle={logoutGoogle}
                     />
                   </motion.div>
                 )}

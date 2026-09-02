@@ -105,8 +105,12 @@ export function useIslandData() {
     id: string;
     title: string;
     subtitle: string;
-    type: 'screenshot' | 'task' | 'alert';
+    type: string;
   } | null>(null);
+
+  // Google Calendar & Tasks state
+  const [googleAuth, setGoogleAuth] = useState<GoogleAuthStatus>({ connected: false, user: null });
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
 
   const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
   const [networkPing, setNetworkPing] = useState<NetworkPing>({ latency: 18, online: true });
@@ -325,8 +329,51 @@ export function useIslandData() {
       });
     });
 
+    // Git & Network Ping polling
+    const fetchGitAndPing = async () => {
+      try {
+        const [git, ping] = await Promise.all([
+          api.getGitStatus?.(),
+          api.getPing?.(),
+        ]);
+        if (git !== undefined) setGitStatus(git);
+        if (ping) setNetworkPing(ping);
+      } catch {}
+    };
+
+    fetchGitAndPing();
+    const gitInterval = setInterval(fetchGitAndPing, 6000);
+
+    // Google Calendar & Tasks polling
+    const fetchGoogle = async () => {
+      try {
+        const auth = await api.getGoogleStatus?.();
+        if (auth) {
+          setGoogleAuth(auth);
+          if (auth.connected) {
+            const [events, gTasks] = await Promise.all([
+              api.getGoogleCalendarEvents?.(),
+              api.getGoogleTasks?.(),
+            ]);
+            if (events) setCalendarEvents(events);
+            if (gTasks && gTasks.length > 0) {
+              setTasks((prev) => {
+                const local = prev.filter((t) => !t.isGoogleTask);
+                return [...local, ...gTasks];
+              });
+            }
+          }
+        }
+      } catch {}
+    };
+
+    fetchGoogle();
+    const googleInterval = setInterval(fetchGoogle, 30000);
+
     return () => {
       clearInterval(mediaTick);
+      clearInterval(gitInterval);
+      clearInterval(googleInterval);
       unsubMedia?.();
       unsubClipboard?.();
       unsubScreenshots?.();
@@ -359,6 +406,38 @@ export function useIslandData() {
     updateMode('expanded');
   }, [recentNotification, focusTimer.isActive, media.isPlaying, updateMode]);
 
+  // Google Login / Logout Actions
+  const loginGoogle = async (clientId?: string, clientSecret?: string) => {
+    const api = (window as any).islandAPI;
+    if (api?.loginGoogle) {
+      const ok = await api.loginGoogle(clientId, clientSecret);
+      if (ok) {
+        const auth = await api.getGoogleStatus?.();
+        if (auth) setGoogleAuth(auth);
+        const [events, gTasks] = await Promise.all([
+          api.getGoogleCalendarEvents?.(),
+          api.getGoogleTasks?.(),
+        ]);
+        if (events) setCalendarEvents(events);
+        if (gTasks) {
+          setTasks((prev) => [...prev.filter((t) => !t.isGoogleTask), ...gTasks]);
+        }
+      }
+      return ok;
+    }
+    return false;
+  };
+
+  const logoutGoogle = async () => {
+    const api = (window as any).islandAPI;
+    if (api?.logoutGoogle) {
+      await api.logoutGoogle();
+      setGoogleAuth({ connected: false, user: null });
+      setCalendarEvents([]);
+      setTasks((prev) => prev.filter((t) => !t.isGoogleTask));
+    }
+  };
+
   // Focus Timer Actions
   const toggleFocusTimer = () => {
     setFocusTimer((prev) => ({
@@ -389,14 +468,22 @@ export function useIslandData() {
     }));
   };
 
-  // Task Actions (Pure Standalone)
-  const addTask = (
+  // Task Actions (2-Way Google Tasks Sync)
+  const addTask = async (
     title: string,
     priority: 'low' | 'medium' | 'high' = 'medium',
     dueDate?: string,
     dueTime?: string
   ) => {
     if (!title.trim()) return;
+    const api = (window as any).islandAPI;
+    if (googleAuth.connected && api?.createGoogleTask) {
+      const created = await api.createGoogleTask(title.trim());
+      if (created) {
+        setTasks((prev) => [created, ...prev]);
+        return;
+      }
+    }
     const newTask: TaskItem = {
       id: Math.random().toString(36).substring(2, 9),
       title: title.trim(),
@@ -409,14 +496,25 @@ export function useIslandData() {
     setTasks((prev) => [newTask, ...prev]);
   };
 
-  const toggleTask = (id: string) => {
+  const toggleTask = async (id: string) => {
+    const task = tasks.find((t) => t.id === id);
+    const nextCompleted = !task?.completed;
     setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t))
+      prev.map((t) => (t.id === id ? { ...t, completed: nextCompleted } : t))
     );
+    if (task?.isGoogleTask) {
+      const api = (window as any).islandAPI;
+      api?.toggleGoogleTask?.(id, nextCompleted);
+    }
   };
 
-  const deleteTask = (id: string) => {
+  const deleteTask = async (id: string) => {
+    const task = tasks.find((t) => t.id === id);
     setTasks((prev) => prev.filter((t) => t.id !== id));
+    if (task?.isGoogleTask) {
+      const api = (window as any).islandAPI;
+      api?.deleteGoogleTask?.(id);
+    }
   };
 
   // Media Actions
@@ -536,5 +634,9 @@ export function useIslandData() {
     agentActivity,
     gitStatus,
     networkPing,
+    googleAuth,
+    calendarEvents,
+    loginGoogle,
+    logoutGoogle,
   };
 }

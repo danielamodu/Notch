@@ -314,6 +314,42 @@ apexDropService.onDownload(() => {
   win?.webContents.send('drop:downloaded');
 });
 
+// Google Calendar & Tasks IPC
+import { googleService } from './services/googleService.ts';
+
+ipcMain.handle('google:getStatus', () => {
+  return googleService.getStatus();
+});
+
+ipcMain.handle('google:login', async (_, clientId?: string, clientSecret?: string) => {
+  return await googleService.startAuthFlow(clientId, clientSecret);
+});
+
+ipcMain.handle('google:logout', () => {
+  googleService.logout();
+  return true;
+});
+
+ipcMain.handle('google:getCalendarEvents', async () => {
+  return await googleService.getCalendarEvents();
+});
+
+ipcMain.handle('google:getTasks', async () => {
+  return await googleService.getTasks();
+});
+
+ipcMain.handle('google:createTask', async (_, title: string) => {
+  return await googleService.createTask(title);
+});
+
+ipcMain.handle('google:toggleTask', async (_, id: string, completed: boolean) => {
+  return await googleService.toggleTask(id, completed);
+});
+
+ipcMain.handle('google:deleteTask', async (_, id: string) => {
+  return await googleService.deleteTask(id);
+});
+
 app.on('second-instance', () => {
   if (win) {
     if (win.isMinimized()) win.restore();

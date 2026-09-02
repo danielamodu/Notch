@@ -22,7 +22,29 @@ export interface TaskItem {
   dueDate?: string; // YYYY-MM-DD
   dueTime?: string; // HH:mm
   tag?: string;
+  isGoogleTask?: boolean;
   createdAt: number;
+}
+
+export interface CalendarEvent {
+  id: string;
+  summary: string;
+  description?: string;
+  location?: string;
+  start: string;
+  end: string;
+  isAllDay?: boolean;
+  meetLink?: string;
+  htmlLink?: string;
+}
+
+export interface GoogleAuthStatus {
+  connected: boolean;
+  user?: {
+    email: string;
+    name: string;
+    picture?: string;
+  } | null;
 }
 
 export interface ClipboardEntry {
