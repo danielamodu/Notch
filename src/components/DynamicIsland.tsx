@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Music, CheckSquare, FolderHeart, ClipboardList, Timer, Settings as SettingsIcon, ChevronUp } from 'lucide-react';
 import { CompactIsland } from './CompactIsland.tsx';
