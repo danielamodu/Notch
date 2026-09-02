@@ -84,30 +84,30 @@ export const DynamicIsland: React.FC = () => {
 
   // Adaptive Dynamic Island Dimensions
   const getIslandDimensions = () => {
-    const baseWidth = settings.compactWidth || 280;
+    const baseWidth = settings.compactWidth || 310;
     if (islandMode === 'compact') {
       let width = baseWidth;
       if (incomingNotification) {
-        width = Math.max(baseWidth + 110, 390);
+        width = Math.max(baseWidth + 90, 400);
       } else if (powerEvent || activeCall?.isActive) {
-        width = Math.max(baseWidth + 40, 320);
+        width = Math.max(baseWidth + 30, 340);
       } else if (agentActivity?.isActive || agentActivity?.status === 'completed') {
-        width = Math.max(baseWidth + 50, 330);
+        width = Math.max(baseWidth + 40, 350);
       } else if (recentNotification) {
-        width = Math.max(baseWidth, 300);
+        width = Math.max(baseWidth, 320);
       } else if (hasDualActivity) {
-        width = Math.max(baseWidth, 310);
+        width = Math.max(baseWidth + 20, 330);
       }
       return {
         width,
-        height: 32,
+        height: 34,
         borderRadius: 9999,
       };
     }
     if (islandMode === 'glance') {
-      let width = Math.max(baseWidth + 30, 320);
+      let width = Math.max(baseWidth + 30, 340);
       if (incomingNotification) {
-        width = Math.max(baseWidth + 110, 390);
+        width = Math.max(baseWidth + 90, 400);
       }
       return {
         width,
@@ -141,7 +141,6 @@ export const DynamicIsland: React.FC = () => {
       style={{ paddingTop: `${(settings.topMargin || 0) + (islandMode === 'expanded' ? 6 : 0)}px` }}
     >
       <motion.div
-        layout
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         initial={false}
@@ -152,11 +151,11 @@ export const DynamicIsland: React.FC = () => {
         }}
         transition={{
           type: 'spring',
-          stiffness: 600,
-          damping: 42,
-          mass: 0.45,
+          stiffness: 850,
+          damping: 38,
+          mass: 0.25,
         }}
-        className={`pointer-events-auto relative overflow-hidden bg-black text-white transition-all duration-150 ${
+        className={`pointer-events-auto relative overflow-hidden bg-black text-white transition-shadow duration-150 ${
           islandMode === 'expanded'
             ? 'border border-white/10 shadow-[0_16px_40px_rgba(0,0,0,0.85)]'
             : 'border-0 shadow-none'

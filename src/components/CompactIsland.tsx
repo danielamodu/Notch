@@ -86,7 +86,11 @@ export const CompactIsland: React.FC<CompactIslandProps> = ({
   }, []);
 
   const formatClock = (d: Date) => {
-    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    let hours = d.getHours();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    const minutes = d.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes} ${ampm}`;
   };
 
   const hasDualActivity = media.isPlaying && focusTimer.isActive;
@@ -424,32 +428,30 @@ export const CompactIsland: React.FC<CompactIslandProps> = ({
           </div>
         </div>
       ) : (
-        /* 8. IDLE STATE: TIME & GIT HUD ON LEFT, PING & BATTERY ON RIGHT */
-        <div className="flex items-center justify-between w-full px-1">
-          {/* Left: Live Time + Git HUD */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-white font-mono tracking-tight">
+        /* 8. IDLE STATE: SPACIOUS & CLEAN CLOCK, GIT PILL & BATTERY */
+        <div className="flex items-center justify-between w-full px-1.5 overflow-hidden">
+          {/* Left: Clock */}
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs font-semibold text-white font-mono tracking-tight whitespace-nowrap">
               {formatClock(currentTime)}
             </span>
-            {gitStatus?.branch && (
-              <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-mono text-neutral-300">
-                <GitBranch className="size-2.5 text-indigo-400" />
-                <span className="truncate max-w-[65px] font-medium">{gitStatus.branch}</span>
-                {gitStatus.modifiedCount > 0 && (
-                  <span className="text-amber-400 font-semibold text-[9px]">+{gitStatus.modifiedCount}</span>
-                )}
-              </div>
-            )}
           </div>
 
-          {/* Right: Network Ping Radar + Laptop Battery */}
-          <div className="flex items-center gap-2 font-mono text-xs text-white">
-            {networkPing?.latency !== null && (
-              <div className="flex items-center gap-1 text-[10px] text-neutral-400 font-mono" title="Network Ping">
-                <Wifi className="size-2.5 text-emerald-400" />
-                <span>{networkPing.latency}ms</span>
-              </div>
-            )}
+          {/* Center: Git Workspace Badge (if in Git repository) */}
+          {gitStatus?.branch ? (
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/[0.08] border border-white/10 text-[10px] font-mono text-neutral-200 shrink-0">
+              <GitBranch className="size-2.5 text-indigo-400 shrink-0" />
+              <span className="truncate max-w-[70px] font-medium">{gitStatus.branch}</span>
+              {gitStatus.modifiedCount > 0 && (
+                <span className="text-amber-400 font-semibold text-[9px]">+{gitStatus.modifiedCount}</span>
+              )}
+            </div>
+          ) : (
+            <div className="size-1" />
+          )}
+
+          {/* Right: Battery Gauge */}
+          <div className="flex items-center gap-1.5 font-mono text-xs text-white shrink-0">
             <BatteryIcon
               percent={system.batteryPercent}
               isCharging={system.isCharging}
