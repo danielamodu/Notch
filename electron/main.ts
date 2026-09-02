@@ -267,6 +267,38 @@ ipcMain.on('shelf:startDrag', async (event, filePath: string) => {
 ipcMain.handle('system:get', () => systemService.getStats());
 ipcMain.handle('system:trimMemory', () => memoryOptimizer.trimWorkingSet());
 
+// Git Status IPC
+ipcMain.handle('git:getStatus', async () => {
+  return new Promise((resolve) => {
+    import('node:child_process').then(({ exec }) => {
+      exec('git branch --show-current', { cwd: process.cwd() }, (err, branchOut) => {
+        const branch = branchOut ? branchOut.trim() : '';
+        if (!branch) return resolve(null);
+        exec('git status --porcelain', { cwd: process.cwd() }, (err2, statusOut) => {
+          const modifiedCount = statusOut ? statusOut.trim().split('\n').filter(Boolean).length : 0;
+          resolve({
+            branch,
+            modifiedCount,
+            isClean: modifiedCount === 0,
+          });
+        });
+      });
+    }).catch(() => resolve(null));
+  });
+});
+
+// Network Ping IPC
+ipcMain.handle('network:getPing', async () => {
+  const start = Date.now();
+  try {
+    const res = await fetch('https://1.1.1.1', { method: 'HEAD', signal: AbortSignal.timeout(1200) });
+    const latency = Date.now() - start;
+    return { latency: Math.min(latency, 999), online: res.ok };
+  } catch {
+    return { latency: null, online: false };
+  }
+});
+
 app.on('second-instance', () => {
   if (win) {
     if (win.isMinimized()) win.restore();

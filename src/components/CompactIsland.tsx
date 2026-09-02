@@ -15,6 +15,9 @@ import {
   PhoneCall,
   Bell,
   Mic,
+  MicOff,
+  GitBranch,
+  Wifi,
 } from 'lucide-react';
 import { BatteryIcon } from './BatteryIcon.tsx';
 import { MediaSourceIcon, MediaSourceBadge, detectMediaSource } from './MediaSourceBadge.tsx';
@@ -29,6 +32,8 @@ import {
   IslandNotification,
   ActiveCallState,
   AgentActivityState,
+  GitStatus,
+  NetworkPing,
 } from '../types/island.ts';
 
 interface CompactIslandProps {
@@ -43,6 +48,8 @@ interface CompactIslandProps {
   activeCall?: ActiveCallState;
   powerEvent?: { type: 'plugged' | 'unplugged'; batteryPercent: number } | null;
   agentActivity?: AgentActivityState;
+  gitStatus?: GitStatus | null;
+  networkPing?: NetworkPing;
   onControlMedia: (action: 'play' | 'pause' | 'toggle' | 'next' | 'previous') => void;
   onToggleFocus: () => void;
   onClick: () => void;
@@ -60,6 +67,8 @@ export const CompactIsland: React.FC<CompactIslandProps> = ({
   activeCall,
   powerEvent,
   agentActivity,
+  gitStatus,
+  networkPing,
   onControlMedia,
   onToggleFocus,
   onClick,
@@ -68,6 +77,7 @@ export const CompactIsland: React.FC<CompactIslandProps> = ({
   const nextTask = pendingTasks[0];
 
   const [currentTime, setCurrentTime] = React.useState(new Date());
+  const [isMicMuted, setIsMicMuted] = React.useState(false);
 
   React.useEffect(() => {
     // Clock only displays HH:mm, update every 10s to eliminate 90% idle wakeups
@@ -88,7 +98,9 @@ export const CompactIsland: React.FC<CompactIslandProps> = ({
   };
 
   const focusProgress =
-    ((focusTimer.totalDuration - focusTimer.timeLeft) / focusTimer.totalDuration) * 100;
+    focusTimer.totalDuration > 0
+      ? ((focusTimer.totalDuration - focusTimer.timeLeft) / focusTimer.totalDuration) * 100
+      : 0;
   const strokeDashoffset = 44 - (44 * focusProgress) / 100;
 
   // Helper for app notification icon
@@ -200,54 +212,53 @@ export const CompactIsland: React.FC<CompactIslandProps> = ({
           </span>
         </div>
       ) : activeCall?.isActive ? (
-        /* 5. ACTIVE CALL / MEETING LIVE ACTIVITY */
+        /* 4. ACTIVE CALL & UNIVERSAL MIC PRIVACY PILL */
         <div className="flex items-center justify-between w-full gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <div className="relative flex items-center justify-center">
-              <Mic className="size-3.5 text-white animate-pulse" />
-              <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-white animate-ping" />
+              {isMicMuted ? (
+                <MicOff className="size-3.5 text-rose-400" />
+              ) : (
+                <Mic className="size-3.5 text-amber-400 animate-pulse" />
+              )}
+              <span
+                className={`absolute -top-0.5 -right-0.5 size-1.5 rounded-full ${
+                  isMicMuted ? 'bg-rose-400' : 'bg-emerald-400 animate-ping'
+                }`}
+              />
             </div>
             <div className="flex items-center gap-1.5 truncate">
               <span className="text-xs font-semibold text-white truncate">
-                {activeCall.app || 'Call Active'}
+                {activeCall.app || 'Microphone Active'}
               </span>
               <span className="text-[11px] text-neutral-400 font-mono">
-                • In Call
+                {isMicMuted ? '• Muted' : '• In Call'}
               </span>
             </div>
           </div>
-          <span className="text-[10px] font-mono bg-white/15 px-1.5 py-0.5 rounded text-white shrink-0">
-            Live
-          </span>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsMicMuted(!isMicMuted);
+            }}
+            className={`text-[10px] font-mono px-2 py-0.5 rounded-full transition active:scale-95 shrink-0 ${
+              isMicMuted
+                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-rose-500/20 hover:text-rose-300'
+            }`}
+          >
+            {isMicMuted ? 'Unmute' : 'Mute'}
+          </button>
         </div>
       ) : hasDualActivity ? (
-        /* 6. DUAL LIVE ACTIVITY (Music Playing + Focus Timer Running) */
+        /* 5. DUAL LIVE ACTIVITY (Music Playing + Focus Timer Running) */
         <div className="flex items-center justify-between w-full gap-2">
           {/* Left: Brand Icon or Album Art */}
           <div className="flex items-center gap-1.5 min-w-0">
             {media.thumbnail ? (
-              <div
-                style={{
-                  width: 18,
-                  height: 18,
-                  minWidth: 18,
-                  maxWidth: 18,
-                  minHeight: 18,
-                  maxHeight: 18,
-                }}
-                className="relative rounded-[4px] overflow-hidden shrink-0 bg-neutral-900 flex items-center justify-center border border-white/10"
-              >
-                <img
-                  src={media.thumbnail}
-                  alt=""
-                  style={{
-                    width: 18,
-                    height: 18,
-                    minWidth: 18,
-                    maxWidth: 18,
-                    objectFit: 'cover',
-                  }}
-                />
+              <div className="relative size-4 rounded-[4px] overflow-hidden shrink-0 bg-neutral-900 flex items-center justify-center border border-white/10">
+                <img src={media.thumbnail} alt="" className="size-full object-cover" />
               </div>
             ) : (
               <MediaSourceIcon media={media} className="size-3.5 shrink-0" />
@@ -257,10 +268,12 @@ export const CompactIsland: React.FC<CompactIslandProps> = ({
                 {media.title}
               </span>
             ) : (
+              /* Audio Wave Visualizer */
               <div className="flex items-end gap-0.5 h-3">
-                <span className="w-0.5 bg-white rounded-full animate-eq-1" />
-                <span className="w-0.5 bg-white rounded-full animate-eq-2" />
-                <span className="w-0.5 bg-white rounded-full animate-eq-3" />
+                <span className="w-0.5 bg-emerald-400 rounded-full animate-eq-1" />
+                <span className="w-0.5 bg-emerald-400 rounded-full animate-eq-2" />
+                <span className="w-0.5 bg-emerald-400 rounded-full animate-eq-3" />
+                <span className="w-0.5 bg-emerald-400 rounded-full animate-eq-4" />
               </div>
             )}
           </div>
@@ -269,13 +282,7 @@ export const CompactIsland: React.FC<CompactIslandProps> = ({
           <div className="flex items-center gap-1 font-mono text-xs text-white shrink-0">
             <div className="relative size-3 flex items-center justify-center">
               <svg className="size-full -rotate-90" viewBox="0 0 20 20">
-                <circle
-                  cx="10"
-                  cy="10"
-                  r="7"
-                  className="stroke-white/20 fill-none"
-                  strokeWidth="2.5"
-                />
+                <circle cx="10" cy="10" r="7" className="stroke-white/20 fill-none" strokeWidth="2.5" />
                 <circle
                   cx="10"
                   cy="10"
@@ -292,18 +299,12 @@ export const CompactIsland: React.FC<CompactIslandProps> = ({
           </div>
         </div>
       ) : focusTimer.isActive ? (
-        /* 7. SOLO FOCUS LIVE ACTIVITY */
+        /* 6. SOLO FOCUS LIVE ACTIVITY */
         <div className="flex items-center justify-between w-full gap-2">
           <div className="flex items-center gap-1.5 min-w-0">
             <div className="relative size-4 flex items-center justify-center shrink-0">
               <svg className="size-full -rotate-90" viewBox="0 0 20 20">
-                <circle
-                  cx="10"
-                  cy="10"
-                  r="7"
-                  className="stroke-white/20 fill-none"
-                  strokeWidth="2.5"
-                />
+                <circle cx="10" cy="10" r="7" className="stroke-white/20 fill-none" strokeWidth="2.5" />
                 <circle
                   cx="10"
                   cy="10"
@@ -352,32 +353,12 @@ export const CompactIsland: React.FC<CompactIslandProps> = ({
           </div>
         </div>
       ) : media.title && (media.isPlaying || media.hasActiveMedia) ? (
-        /* 8. SOLO NOW PLAYING LIVE ACTIVITY (With dynamic brand badge) */
+        /* 7. SOLO NOW PLAYING WITH DYNAMIC AUDIO WAVE VISUALIZER */
         <div className="flex items-center justify-between w-full gap-2">
           <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
             {media.thumbnail ? (
-              <div
-                style={{
-                  width: 20,
-                  height: 20,
-                  minWidth: 20,
-                  maxWidth: 20,
-                  minHeight: 20,
-                  maxHeight: 20,
-                }}
-                className="relative rounded-[5px] overflow-hidden shrink-0 bg-neutral-900 flex items-center justify-center border border-white/10"
-              >
-                <img
-                  src={media.thumbnail}
-                  alt=""
-                  style={{
-                    width: 20,
-                    height: 20,
-                    minWidth: 20,
-                    maxWidth: 20,
-                    objectFit: 'cover',
-                  }}
-                />
+              <div className="relative size-5 rounded-[5px] overflow-hidden shrink-0 bg-neutral-900 flex items-center justify-center border border-white/10">
+                <img src={media.thumbnail} alt="" className="size-full object-cover" />
               </div>
             ) : (
               <div className="flex items-center justify-center shrink-0">
@@ -399,7 +380,7 @@ export const CompactIsland: React.FC<CompactIslandProps> = ({
             </div>
           </div>
 
-          {/* Trailing Controls or Equalizer */}
+          {/* Trailing Controls or 5-Bar Wave Visualizer */}
           <div className="flex items-center gap-1.5 shrink-0">
             {mode === 'glance' ? (
               <div className="flex items-center gap-1">
@@ -427,11 +408,13 @@ export const CompactIsland: React.FC<CompactIslandProps> = ({
                 </button>
               </div>
             ) : media.isPlaying ? (
-              <div className="flex items-end gap-0.5 h-3">
+              /* 5-Bar Pulsating Wave Visualizer */
+              <div className="flex items-end gap-0.5 h-3.5 px-1">
                 <span className="w-0.5 bg-white rounded-full animate-eq-1" />
                 <span className="w-0.5 bg-white rounded-full animate-eq-2" />
                 <span className="w-0.5 bg-white rounded-full animate-eq-3" />
                 <span className="w-0.5 bg-white rounded-full animate-eq-4" />
+                <span className="w-0.5 bg-white rounded-full animate-eq-2" />
               </div>
             ) : (
               <span className="text-[10px] font-mono text-neutral-400 uppercase tracking-wide">
@@ -441,17 +424,32 @@ export const CompactIsland: React.FC<CompactIslandProps> = ({
           </div>
         </div>
       ) : (
-        /* 9. IDLE STATE: TIME ON LEFT, LAPTOP BATTERY ON RIGHT */
+        /* 8. IDLE STATE: TIME & GIT HUD ON LEFT, PING & BATTERY ON RIGHT */
         <div className="flex items-center justify-between w-full px-1">
-          {/* Left: Live Time */}
-          <div className="flex items-center gap-1.5">
+          {/* Left: Live Time + Git HUD */}
+          <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-white font-mono tracking-tight">
               {formatClock(currentTime)}
             </span>
+            {gitStatus?.branch && (
+              <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] font-mono text-neutral-300">
+                <GitBranch className="size-2.5 text-indigo-400" />
+                <span className="truncate max-w-[65px] font-medium">{gitStatus.branch}</span>
+                {gitStatus.modifiedCount > 0 && (
+                  <span className="text-amber-400 font-semibold text-[9px]">+{gitStatus.modifiedCount}</span>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Right: Laptop Battery */}
-          <div className="flex items-center gap-1.5 font-mono text-xs text-white">
+          {/* Right: Network Ping Radar + Laptop Battery */}
+          <div className="flex items-center gap-2 font-mono text-xs text-white">
+            {networkPing?.latency !== null && (
+              <div className="flex items-center gap-1 text-[10px] text-neutral-400 font-mono" title="Network Ping">
+                <Wifi className="size-2.5 text-emerald-400" />
+                <span>{networkPing.latency}ms</span>
+              </div>
+            )}
             <BatteryIcon
               percent={system.batteryPercent}
               isCharging={system.isCharging}

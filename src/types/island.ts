@@ -114,3 +114,15 @@ export interface AgentActivityState {
   status: AgentStatus;
   updatedAt: number;
 }
+
+export interface GitStatus {
+  branch: string;
+  modifiedCount: number;
+  isClean: boolean;
+}
+
+export interface NetworkPing {
+  latency: number | null;
+  online: boolean;
+}
+

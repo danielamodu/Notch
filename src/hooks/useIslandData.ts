@@ -108,6 +108,30 @@ export function useIslandData() {
     type: 'screenshot' | 'task' | 'alert';
   } | null>(null);
 
+  const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
+  const [networkPing, setNetworkPing] = useState<NetworkPing>({ latency: 18, online: true });
+
+  // Poll Git Status & Network Ping for closed-state radars
+  useEffect(() => {
+    const api = (window as any).islandAPI;
+    const fetchGitAndPing = async () => {
+      try {
+        if (api?.getGitStatus) {
+          const g = await api.getGitStatus();
+          if (g && g.branch) setGitStatus(g);
+        }
+        if (api?.getPing) {
+          const p = await api.getPing();
+          if (p) setNetworkPing(p);
+        }
+      } catch {}
+    };
+
+    fetchGitAndPing();
+    const interval = setInterval(fetchGitAndPing, 6000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Focus Timer Tick Engine
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -510,5 +534,7 @@ export function useIslandData() {
     activeCall,
     powerEvent,
     agentActivity,
+    gitStatus,
+    networkPing,
   };
 }

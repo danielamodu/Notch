@@ -58,6 +58,8 @@ const API = {
 
   // System & Power Events
   getSystemStats: () => ipcRenderer.invoke('system:get'),
+  getGitStatus: () => ipcRenderer.invoke('git:getStatus'),
+  getPing: () => ipcRenderer.invoke('network:getPing'),
   onSystemUpdate: (callback) => {
     const handler = (_, data) => callback(data);
     ipcRenderer.on('system:update', handler);

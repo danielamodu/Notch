@@ -46,6 +46,8 @@ export const DynamicIsland: React.FC = () => {
     activeCall,
     powerEvent,
     agentActivity,
+    gitStatus,
+    networkPing,
   } = useIslandData();
 
   const collapseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -177,6 +179,8 @@ export const DynamicIsland: React.FC = () => {
             activeCall={activeCall}
             powerEvent={powerEvent}
             agentActivity={agentActivity}
+            gitStatus={gitStatus}
+            networkPing={networkPing}
             onControlMedia={controlMedia}
             onToggleFocus={toggleFocusTimer}
             onClick={expandToContext}
