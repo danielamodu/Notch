@@ -50,6 +50,13 @@ const API = {
   removeShelfFile: (id) => ipcRenderer.invoke('shelf:remove', id),
   clearShelf: () => ipcRenderer.invoke('shelf:clear'),
   startDrag: (filePath) => ipcRenderer.send('shelf:startDrag', filePath),
+  startApexDrop: (filePath) => ipcRenderer.invoke('drop:startShare', filePath),
+  stopApexDrop: () => ipcRenderer.invoke('drop:stopShare'),
+  onApexDropDownloaded: (callback) => {
+    const handler = () => callback();
+    ipcRenderer.on('drop:downloaded', handler);
+    return () => ipcRenderer.removeListener('drop:downloaded', handler);
+  },
   onShelfUpdate: (callback) => {
     const handler = (_, data) => callback(data);
     ipcRenderer.on('shelf:update', handler);

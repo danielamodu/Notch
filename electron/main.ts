@@ -299,6 +299,21 @@ ipcMain.handle('network:getPing', async () => {
   }
 });
 
+// Apex Drop (QR Wi-Fi Phone Transfer) IPC
+import { apexDropService } from './services/apexDropService.ts';
+
+ipcMain.handle('drop:startShare', async (_, filePath: string) => {
+  return await apexDropService.startShare(filePath);
+});
+
+ipcMain.handle('drop:stopShare', () => {
+  apexDropService.stopShare();
+});
+
+apexDropService.onDownload(() => {
+  win?.webContents.send('drop:downloaded');
+});
+
 app.on('second-instance', () => {
   if (win) {
     if (win.isMinimized()) win.restore();
