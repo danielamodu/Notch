@@ -19,26 +19,8 @@ process.env.APP_ROOT = path.join(__dirname, '..');
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
   app.quit();
+  process.exit(0);
 }
-
-// Avoid cache locking errors on Windows
-try {
-  const customUserData = path.join(app.getPath('temp'), 'apex-island-app-data');
-  if (!fs.existsSync(customUserData)) {
-    fs.mkdirSync(customUserData, { recursive: true });
-  }
-  app.setPath('userData', customUserData);
-} catch {}
-
-// ── Chromium performance flags ─────────────────────────────────────────────
-app.commandLine.appendSwitch('disable-gpu-cache');
-app.commandLine.appendSwitch('disable-http-cache');
-app.commandLine.appendSwitch('no-sandbox');
-app.commandLine.appendSwitch('enable-gpu-rasterization');
-app.commandLine.appendSwitch('enable-zero-copy');
-app.commandLine.appendSwitch('disable-renderer-backgrounding');
-app.commandLine.appendSwitch('disable-background-timer-throttling');
-app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 
 export const MAIN_DIST = path.join(process.env.APP_ROOT, 'dist-electron');
 export const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist');
@@ -85,9 +67,19 @@ function createWindow() {
     },
   });
 
-  win.setAlwaysOnTop(true, 'screen-saver');
+  win.setAlwaysOnTop(true, 'status');
   win.moveTop();
   win.setMenu(null);
+
+  win.webContents.on('did-fail-load', (e, errorCode, errorDescription) => {
+    console.error(`[Renderer] Failed to load: ${errorDescription} (${errorCode})`);
+  });
+
+  win.webContents.on('console-message', (e, level, message) => {
+    if (level >= 2) {
+      console.error(`[Renderer Error]: ${message}`);
+    }
+  });
 
   if (process.env.VITE_DEV_SERVER_URL) {
     win.loadURL(process.env.VITE_DEV_SERVER_URL);
