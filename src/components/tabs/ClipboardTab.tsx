@@ -22,34 +22,36 @@ export const ClipboardTab: React.FC<ClipboardTabProps> = ({
   const handleCopy = (item: ClipboardEntry) => {
     onCopy(item.content);
     setCopiedId(item.id);
-    setTimeout(() => setCopiedId(null), 1800);
+    setTimeout(() => setCopiedId(null), 1500);
   };
 
+  const visibleItems = items.slice(0, 3);
+
   return (
-    <div className="flex flex-col gap-1.5 p-2.5 text-white">
+    <div className="flex flex-col justify-between h-full px-3.5 pt-1.5 pb-3 text-white select-none overflow-hidden gap-1.5">
       <div className="flex items-center justify-between border-b border-white/5 pb-1 text-[11px] text-neutral-400">
-        <span>Recent Clips</span>
+        <span>Recent Clips ({items.length})</span>
         {items.length > 0 && (
-          <button onClick={onClear} className="hover:text-rose-400 text-[10px]">
+          <button onClick={onClear} className="hover:text-rose-400 text-[10px] transition">
             Clear
           </button>
         )}
       </div>
 
-      <div className="flex flex-col gap-1 max-h-36 overflow-y-auto pr-0.5">
-        {items.length === 0 ? (
-          <div className="flex items-center justify-center py-6 text-neutral-500 text-[11px]">
-            Clipboard is empty
+      <div className="flex flex-col gap-1 overflow-hidden flex-1 justify-center">
+        {visibleItems.length === 0 ? (
+          <div className="flex items-center justify-center py-4 text-neutral-500 text-[11px]">
+            Clipboard history is empty
           </div>
         ) : (
-          items.map((item) => (
+          visibleItems.map((item) => (
             <div
               key={item.id}
-              className="group flex items-center justify-between gap-2 p-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 transition"
+              className="group flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-neutral-900/80 hover:bg-neutral-850 border border-white/5 transition"
             >
               <div
                 onClick={() => handleCopy(item)}
-                className="text-xs text-neutral-300 font-mono truncate flex-1 cursor-pointer hover:text-white"
+                className="text-xs text-neutral-200 font-mono truncate flex-1 cursor-pointer hover:text-white"
               >
                 {item.isSensitive ? '••••••••••••••••' : item.content}
               </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FolderOpen, Copy, Trash2, Image as ImageIcon, Check, UploadCloud } from 'lucide-react';
+import { Trash2, Copy, Check, Inbox, UploadCloud } from 'lucide-react';
 import { ScreenshotEntry, ShelfEntry } from '../../types/island.ts';
 
 interface ShelfTabProps {
@@ -17,7 +17,6 @@ export const ShelfTab: React.FC<ShelfTabProps> = ({
   onRemoveShelfFile,
   onAddShelfFile,
 }) => {
-  const [activeSection, setActiveSection] = useState<'screenshots' | 'shelf'>('screenshots');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isDraggingOver, setIsDraggingOver] = useState(false);
 
@@ -28,7 +27,7 @@ export const ShelfTab: React.FC<ShelfTabProps> = ({
         const blob = await res.blob();
         await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
         setCopiedId(item.id);
-        setTimeout(() => setCopiedId(null), 2000);
+        setTimeout(() => setCopiedId(null), 1500);
       }
     } catch {}
   };
@@ -39,12 +38,6 @@ export const ShelfTab: React.FC<ShelfTabProps> = ({
   };
 
   const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDraggingOver(true);
-  };
-
-  const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDraggingOver(true);
@@ -63,7 +56,6 @@ export const ShelfTab: React.FC<ShelfTabProps> = ({
 
     const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) {
-      setActiveSection('shelf');
       for (const file of files) {
         const nativePath = (file as any).path || file.name;
         if (nativePath) {
@@ -73,120 +65,68 @@ export const ShelfTab: React.FC<ShelfTabProps> = ({
     }
   };
 
+  const allItems = [
+    ...screenshots.map((s) => ({ type: 'screenshot' as const, ...s })),
+    ...shelfFiles.map((f) => ({ type: 'file' as const, ...f })),
+  ].slice(0, 4);
+
   return (
     <div
       onDragOver={handleDragOver}
-      onDragEnter={handleDragEnter}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`relative flex flex-col gap-2 p-2.5 text-white transition-colors duration-150 rounded-lg ${
-        isDraggingOver ? 'bg-indigo-500/10 border-2 border-dashed border-indigo-400/60' : ''
-      }`}
+      className="flex flex-col justify-between h-full px-3.5 pt-1.5 pb-3 text-white select-none overflow-hidden gap-1.5 relative"
     >
-      {/* Drop Overlay */}
-      {isDraggingOver && (
-        <div className="absolute inset-0 bg-neutral-950/80 backdrop-blur-sm z-20 flex flex-col items-center justify-center gap-1.5 rounded-lg border border-indigo-400/40">
-          <UploadCloud className="size-6 text-indigo-400 animate-bounce" />
-          <span className="text-xs font-semibold text-white">Drop files to stage in Shelf</span>
+      {isDraggingOver ? (
+        <div className="flex-1 flex flex-col items-center justify-center rounded-xl bg-neutral-900 border-2 border-dashed border-indigo-400 text-center p-2">
+          <UploadCloud className="size-5 text-indigo-400 animate-bounce" />
+          <span className="text-xs font-semibold text-white mt-1">Drop to stage file</span>
         </div>
-      )}
-
-      {/* Mini Toggle */}
-      <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setActiveSection('screenshots')}
-            className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition ${
-              activeSection === 'screenshots' ? 'bg-white/15 text-white' : 'text-neutral-400 hover:text-white'
-            }`}
-          >
-            Screenshots ({screenshots.length})
-          </button>
-          <button
-            onClick={() => setActiveSection('shelf')}
-            className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition ${
-              activeSection === 'shelf' ? 'bg-white/15 text-white' : 'text-neutral-400 hover:text-white'
-            }`}
-          >
-            Files ({shelfFiles.length})
-          </button>
-        </div>
-        <span className="text-[9px] font-mono text-neutral-500">Win+Shift+S</span>
-      </div>
-
-      {/* Grid of Screenshots */}
-      {activeSection === 'screenshots' ? (
-        <div className="flex flex-col gap-1.5 max-h-36 overflow-y-auto pr-0.5">
-          {screenshots.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-6 text-neutral-500 gap-1">
-              <ImageIcon className="size-4 text-neutral-600" />
-              <span className="text-[11px]">No screenshots yet</span>
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-1.5">
-              {screenshots.map((s) => (
-                <div
-                  key={s.id}
-                  draggable={!!s.filePath}
-                  onDragStart={() => s.filePath && handleStartDrag(s.filePath)}
-                  className="group relative rounded-lg bg-neutral-900 overflow-hidden flex flex-col cursor-grab active:cursor-grabbing hover:ring-1 hover:ring-white/20 transition"
-                >
-                  <div className="aspect-video w-full bg-black/40 overflow-hidden flex items-center justify-center">
-                    <img src={s.dataUrl} alt="" className="size-full object-cover" />
-                  </div>
-                  <div className="p-1 flex items-center justify-between bg-neutral-950/90 text-[10px]">
-                    <span className="truncate text-neutral-300 max-w-[80px]">{s.name}</span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => copyScreenshot(s)}
-                        className="p-0.5 text-neutral-400 hover:text-white"
-                        title="Copy Image"
-                      >
-                        {copiedId === s.id ? <Check className="size-3 text-white" /> : <Copy className="size-3" />}
-                      </button>
-                      <button
-                        onClick={() => onDeleteScreenshot(s.id)}
-                        className="p-0.5 text-neutral-500 hover:text-rose-400"
-                        title="Delete Screenshot"
-                      >
-                        <Trash2 className="size-3" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+      ) : allItems.length === 0 ? (
+        <div className="flex-1 flex flex-col items-center justify-center rounded-xl bg-neutral-900/60 border border-neutral-800 text-center p-2">
+          <Inbox className="size-5 text-neutral-500 mb-1" />
+          <span className="text-xs font-medium text-neutral-300">Shelf is Empty</span>
+          <span className="text-[10px] text-neutral-500">Drag files here to stage or copy</span>
         </div>
       ) : (
-        <div className="flex flex-col gap-1 max-h-36 overflow-y-auto pr-0.5">
-          {shelfFiles.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-6 text-neutral-500 gap-1 border border-dashed border-white/10 rounded-lg">
-              <FolderOpen className="size-4 text-neutral-600" />
-              <span className="text-[11px]">Drop files or images here</span>
-            </div>
-          ) : (
-            shelfFiles.map((file) => (
-              <div
-                key={file.id}
-                draggable
-                onDragStart={() => handleStartDrag(file.filePath)}
-                className="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-neutral-900 text-xs cursor-grab active:cursor-grabbing hover:bg-neutral-800 transition"
-              >
-                <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                  <FolderOpen className="size-3.5 text-indigo-400 shrink-0" />
-                  <span className="truncate text-neutral-200">{file.name}</span>
-                </div>
+        <div className="grid grid-cols-4 gap-2 flex-1 items-center overflow-hidden">
+          {allItems.map((item) => (
+            <div
+              key={item.id}
+              draggable={!!(item as any).filePath}
+              onDragStart={() => (item as any).filePath && handleStartDrag((item as any).filePath)}
+              className="group relative aspect-video rounded-lg bg-neutral-900 overflow-hidden border border-white/5 cursor-grab active:cursor-grabbing hover:border-white/20 transition flex items-center justify-center"
+            >
+              {item.type === 'screenshot' && (item as any).dataUrl ? (
+                <img src={(item as any).dataUrl} alt="" className="size-full object-cover" />
+              ) : (
+                <span className="text-[9px] text-neutral-300 truncate max-w-[60px] px-1">
+                  {item.name}
+                </span>
+              )}
+
+              <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-1.5">
+                {item.type === 'screenshot' && (
+                  <button
+                    onClick={() => copyScreenshot(item as any)}
+                    className="p-1 rounded-full bg-white/20 text-white hover:bg-white/40 transition"
+                  >
+                    {copiedId === item.id ? <Check className="size-2.5" /> : <Copy className="size-2.5" />}
+                  </button>
+                )}
                 <button
-                  onClick={() => onRemoveShelfFile(file.id)}
-                  className="text-neutral-500 hover:text-rose-400 p-0.5"
-                  title="Remove from Shelf"
+                  onClick={() =>
+                    item.type === 'screenshot'
+                      ? onDeleteScreenshot(item.id)
+                      : onRemoveShelfFile(item.id)
+                  }
+                  className="p-1 rounded-full bg-white/20 text-rose-300 hover:bg-rose-500/40 transition"
                 >
-                  <Trash2 className="size-3" />
+                  <Trash2 className="size-2.5" />
                 </button>
               </div>
-            ))
-          )}
+            </div>
+          ))}
         </div>
       )}
     </div>

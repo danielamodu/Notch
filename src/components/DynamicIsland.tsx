@@ -114,12 +114,12 @@ export const DynamicIsland: React.FC = () => {
       };
     }
 
-    // Expanded Dropdown - tailored tightly without excess empty space
-    let height = 220;
+    // Expanded Dropdown - tailored tightly without excess space, 100% non-scrollable
+    let height = 165;
     if (activeTab === 'media') {
-      height = 180;
+      height = 160;
     } else if (activeTab === 'focus') {
-      height = 200;
+      height = 165;
     }
 
     return {
@@ -195,14 +195,14 @@ export const DynamicIsland: React.FC = () => {
             className="flex flex-col size-full overflow-hidden bg-black"
           >
             {/* Header / Full-Width Tab Bar */}
-            <div className="flex items-center justify-between gap-1 px-3 py-2 border-b border-white/5 bg-black">
+            <div className="flex items-center justify-between gap-1 px-3 py-1.5 border-b border-white/5 bg-black shrink-0">
               <div className="flex items-center justify-between flex-1 gap-1">
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     title={tab.label}
-                    className={`relative flex-1 flex items-center justify-center h-7 rounded-md transition active:scale-95 ${
+                    className={`relative flex-1 flex items-center justify-center h-6 rounded-md transition active:scale-95 ${
                       activeTab === tab.id
                         ? 'bg-neutral-800 text-white font-semibold'
                         : 'text-neutral-500 hover:text-neutral-300'
@@ -216,15 +216,15 @@ export const DynamicIsland: React.FC = () => {
               {/* Collapse Button */}
               <button
                 onClick={() => setIslandMode('compact')}
-                className="size-7 flex items-center justify-center rounded-md text-neutral-500 hover:text-neutral-300 transition active:scale-95 shrink-0 ml-1"
+                className="size-6 flex items-center justify-center rounded-md text-neutral-500 hover:text-neutral-300 transition active:scale-95 shrink-0 ml-1"
                 title="Collapse Island (Alt + `)"
               >
                 <ChevronUp className="size-3.5" />
               </button>
             </div>
 
-            {/* Tab Contents */}
-            <div className="flex-1 overflow-y-auto">
+            {/* Tab Contents - 100% Non-Scrollable */}
+            <div className="flex-1 overflow-hidden">
               <AnimatePresence mode="wait">
                 {activeTab === 'media' && (
                   <NowPlayingTab key="media" media={media} onControl={controlMedia} />
