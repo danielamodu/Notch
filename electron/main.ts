@@ -67,7 +67,8 @@ function createWindow() {
     },
   });
 
-  win.setAlwaysOnTop(true, 'status');
+  win.setAlwaysOnTop(true, 'screen-saver', 1);
+  win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   win.moveTop();
   win.setMenu(null);
 
