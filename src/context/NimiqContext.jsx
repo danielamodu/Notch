@@ -28,6 +28,7 @@ export function NimiqProvider({ children }) {
         setIsConnected(true)
       } catch (e) {
         if (cancelled) return
+        console.error('[Nimiq SDK init error]', e)
         setError(e)
         setIsConnected(false)
       } finally {
@@ -92,6 +93,33 @@ export function NimiqProvider({ children }) {
       signMessage,
       getDeviceId,
     }}>
+      {error && (
+        <div
+          style={{
+            backgroundColor: '#000',
+            color: '#fff',
+            fontSize: '22px',
+            lineHeight: '1.5',
+            padding: '24px',
+            minHeight: '100vh',
+            width: '100%',
+            boxSizing: 'border-box',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            zIndex: 9999,
+          }}
+        >
+          <div style={{ fontWeight: 'bold', marginBottom: '16px', fontSize: '26px' }}>
+            Nimiq SDK init error:
+          </div>
+          <div>{error?.message || String(error)}</div>
+          {error?.stack && (
+            <div style={{ marginTop: '16px', fontSize: '16px', opacity: 0.9 }}>
+              {error.stack}
+            </div>
+          )}
+        </div>
+      )}
       {children}
     </NimiqContext.Provider>
   )
