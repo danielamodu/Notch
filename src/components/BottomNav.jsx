@@ -43,7 +43,9 @@ export default function BottomNav() {
             flexShrink: 0,
           })}
         >
-          <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
+          {({ isActive }) => (
+            <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
+          )}
         </NavLink>
       ))}
     </nav>

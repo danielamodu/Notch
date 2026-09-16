@@ -5,10 +5,15 @@ import { getActiveMarkets } from '../lib/db.js'
 export default function Feed() {
   const [markets, setMarkets] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
 
   useEffect(() => {
     getActiveMarkets('trending')
-      .then(setMarkets)
+      .then((data) => {
+        setMarkets(data)
+        setLoadError(null)
+      })
+      .catch((e) => setLoadError(e))
       .finally(() => setLoading(false))
   }, [])
 
@@ -16,6 +21,16 @@ export default function Feed() {
     return (
       <div style={{ padding: '16px' }}>
         <p style={{ color: 'var(--text-secondary)' }}>Loading markets…</p>
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div style={{ padding: '16px' }}>
+        <p style={{ color: '#fff', fontSize: '18px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+          Failed to load markets:{'\n'}{loadError?.message || String(loadError)}
+        </p>
       </div>
     )
   }

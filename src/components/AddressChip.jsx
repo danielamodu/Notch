@@ -12,7 +12,12 @@ export default function AddressChip({ address, showTooltip = true }) {
 
   const handleCopy = () => {
     if (!address) return
-    navigator.clipboard.writeText(address)
+    try {
+      if (!navigator.clipboard?.writeText) return
+      navigator.clipboard.writeText(address)
+    } catch (_) {
+      return
+    }
     setCopied(true)
     if (timeoutRef.current) clearTimeout(timeoutRef.current)
     timeoutRef.current = setTimeout(() => setCopied(false), 2000)

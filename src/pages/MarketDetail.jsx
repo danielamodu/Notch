@@ -10,6 +10,7 @@ export default function MarketDetail() {
   useEffect(() => {
     getMarketById(id)
       .then(setMarket)
+      .catch(() => setMarket(null))
       .finally(() => setLoading(false))
   }, [id])
 
