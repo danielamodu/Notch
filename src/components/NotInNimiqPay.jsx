@@ -1,17 +1,19 @@
-export default function NotInNimiqPay() {
+export default function NotInNimiqPay({ error = null, debug = null }) {
   return (
     <div style={{
       position: 'fixed',
       inset: 0,
-      background: '#0a0a0a',
+      background: '#000000',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      justifyContent: 'center',
+      justifyContent: 'flex-start',
       gap: '16px',
       padding: '24px',
       zIndex: 9999,
       textAlign: 'center',
+      overflowY: 'auto',
+      color: '#ffffff',
     }}>
       <div style={{
         position: 'absolute',
@@ -26,6 +28,7 @@ export default function NotInNimiqPay() {
         fontWeight: 700,
         color: '#ffffff',
         margin: 0,
+        marginTop: '32px',
       }}>
         Open in Nimiq Pay
       </h1>
@@ -38,6 +41,40 @@ export default function NotInNimiqPay() {
       }}>
         Notch runs inside the Nimiq Pay app
       </p>
+      {(error || debug) && (
+        <div style={{
+          marginTop: '16px',
+          width: '100%',
+          maxWidth: '600px',
+          background: '#111',
+          border: '1px solid #333',
+          borderRadius: '8px',
+          padding: '16px',
+          textAlign: 'left',
+          fontSize: '16px',
+          lineHeight: 1.5,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          color: '#fff',
+        }}>
+          {error && (
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{ fontWeight: 'bold' }}>Error:</div>
+              <div>{error?.message || String(error)}</div>
+            </div>
+          )}
+          {debug && (
+            <div>
+              <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>Diagnostics:</div>
+              {Object.entries(debug).map(([k, v]) => (
+                <div key={k}>
+                  <span style={{ opacity: 0.6 }}>{k}: </span>{String(v)}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

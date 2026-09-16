@@ -12,14 +12,14 @@ import Leaderboard from './pages/Leaderboard.jsx'
 import './styles/global.css'
 
 function AppContent() {
-  const { address, isLoading, error } = useNimiq()
+  const { address, isLoading, error, debug } = useNimiq()
 
   if (isLoading) {
-    return <LoadingScreen />
+    return <LoadingScreen status={debug?.status} />
   }
 
   if (error || !address) {
-    return <NotInNimiqPay />
+    return <NotInNimiqPay error={error} debug={debug} />
   }
 
   return (

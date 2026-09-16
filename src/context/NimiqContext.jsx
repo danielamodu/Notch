@@ -11,6 +11,8 @@ export function NimiqProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState(null)
   const [provider, setProvider] = useState(null)
+  const [status, setStatus] = useState('starting init...')
+  const [accountsRaw, setAccountsRaw] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -18,17 +20,26 @@ export function NimiqProvider({ children }) {
     async function initNimiq() {
       setIsLoading(true)
       try {
+        setStatus('calling init() — waiting for window.nimiq injection...')
         const p = await init()
         if (cancelled) return
         setProvider(p)
+        setStatus('init() resolved — calling listAccounts()...')
         const accounts = await p.listAccounts()
+        if (cancelled) return
+        setAccountsRaw(accounts)
+        setStatus('listAccounts() resolved')
         const addr = Array.isArray(accounts) && accounts.length > 0 ? accounts[0] : null
         if (cancelled) return
         setAddress(addr)
         setIsConnected(true)
+        if (!addr) {
+          setStatus('init succeeded but no accounts returned (empty array)')
+        }
       } catch (e) {
         if (cancelled) return
         console.error('[Nimiq SDK init error]', e)
+        setStatus('init FAILED — see error below')
         setError(e)
         setIsConnected(false)
       } finally {
@@ -83,6 +94,18 @@ export function NimiqProvider({ children }) {
     return deviceId
   }, [])
 
+  const debug = {
+    status,
+    isLoading,
+    isConnected,
+    address: address || '(none)',
+    accountsRaw: accountsRaw === null ? '(not fetched yet)' : JSON.stringify(accountsRaw),
+    hasWindowNimiq: typeof window !== 'undefined' && !!window.nimiq,
+    hasNimiqPay: typeof window !== 'undefined' && !!window.nimiqPay,
+    href: typeof window !== 'undefined' ? window.location.href : '(no window)',
+    userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '(no navigator)',
+  }
+
   return (
     <NimiqContext.Provider value={{
       address,
@@ -92,21 +115,26 @@ export function NimiqProvider({ children }) {
       sendBet,
       signMessage,
       getDeviceId,
+      debug,
     }}>
+      {children}
       {error && (
         <div
           style={{
+            position: 'fixed',
+            inset: 0,
             backgroundColor: '#000',
             color: '#fff',
             fontSize: '22px',
             lineHeight: '1.5',
             padding: '24px',
-            minHeight: '100vh',
             width: '100%',
+            height: '100%',
             boxSizing: 'border-box',
             whiteSpace: 'pre-wrap',
             wordBreak: 'break-word',
-            zIndex: 9999,
+            zIndex: 999999,
+            overflowY: 'auto',
           }}
         >
           <div style={{ fontWeight: 'bold', marginBottom: '16px', fontSize: '26px' }}>
@@ -118,9 +146,14 @@ export function NimiqProvider({ children }) {
               {error.stack}
             </div>
           )}
+          <div style={{ marginTop: '24px', borderTop: '2px solid #fff', paddingTop: '16px', fontSize: '18px' }}>
+            <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>Diagnostics:</div>
+            {Object.entries(debug).map(([k, v]) => (
+              <div key={k}><span style={{ opacity: 0.7 }}>{k}: </span>{String(v)}</div>
+            ))}
+          </div>
         </div>
       )}
-      {children}
     </NimiqContext.Provider>
   )
 }

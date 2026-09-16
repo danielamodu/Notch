@@ -1,4 +1,4 @@
-export default function LoadingScreen() {
+export default function LoadingScreen({ status = '' }) {
   return (
     <div style={{
       position: 'fixed',
@@ -10,6 +10,8 @@ export default function LoadingScreen() {
       justifyContent: 'center',
       gap: '24px',
       zIndex: 9999,
+      padding: '24px',
+      textAlign: 'center',
     }}>
       <h1 style={{
         fontSize: '2rem',
@@ -26,6 +28,11 @@ export default function LoadingScreen() {
         background: '#F6B221',
         animation: 'pulse 1.5s ease-in-out infinite',
       }} />
+      {status && (
+        <p style={{ color: '#ffffff', fontSize: '16px', maxWidth: '320px', lineHeight: 1.5 }}>
+          {status}
+        </p>
+      )}
       <style>{`
         @keyframes pulse {
           0%, 100% { opacity: 0.3; transform: scale(1); }
