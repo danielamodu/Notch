@@ -1,4 +1,4 @@
-export function getProbability(nimA, nimB) {
+export function getProbability(nimA: any, nimB: any) {
   const a = Number(nimA) || 0
   const b = Number(nimB) || 0
   const total = a + b
@@ -9,7 +9,7 @@ export function getProbability(nimA, nimB) {
   }
 }
 
-export function getTimeRemaining(endsAt) {
+export function getTimeRemaining(endsAt: string) {
   const end = new Date(endsAt).getTime()
   const now = Date.now()
   const diffMs = end - now
@@ -22,7 +22,7 @@ export function getTimeRemaining(endsAt) {
   const totalHours = Math.floor(totalMinutes / 60)
   const days = Math.floor(totalHours / 24)
 
-  let display
+  let display: string
   if (days >= 1) {
     display = `${days}d ${totalHours % 24}h`
   } else if (totalHours >= 1) {
@@ -36,7 +36,7 @@ export function getTimeRemaining(endsAt) {
   return { display, isUrgent: diffMs < 3600000, isClosed: false }
 }
 
-export function formatNim(amount) {
+export function formatNim(amount: any) {
   const n = Number(amount) || 0
   if (n >= 1000) {
     const k = Math.round((n / 1000) * 10) / 10
@@ -46,7 +46,17 @@ export function formatNim(amount) {
   return `${String(rounded).replace(/\.0$/, '')} NIM`
 }
 
-export function timeAgo(isoString) {
+export function formatPoolNumber(amount: any) {
+  const n = Number(amount) || 0
+  if (n >= 1000) {
+    const k = Math.round((n / 1000) * 10) / 10
+    return `${String(k).replace(/\.0$/, '')}k`
+  }
+  const rounded = Math.round(n * 10) / 10
+  return String(rounded).replace(/\.0$/, '')
+}
+
+export function timeAgo(isoString: string) {
   const t = new Date(isoString).getTime()
   if (Number.isNaN(t)) return ''
   const diffMs = Date.now() - t
@@ -65,10 +75,15 @@ export function timeAgo(isoString) {
   return `${Math.floor(days / 365)}y ago`
 }
 
-export function potentialPayout(betAmount, sideTotal, totalPool, feeRate = 0.05) {
+export function potentialPayout(betAmount: any, sideTotal: any, totalPool: any, feeRate = 0.05) {
   const bet = Number(betAmount) || 0
   const side = Number(sideTotal) || 0
   const pool = Number(totalPool) || 0
   if (bet <= 0) return 0
   return (bet / (side + bet)) * (pool + bet) * (1 - feeRate)
+}
+
+export function shortenAddress(addr: string) {
+  if (!addr || addr.length < 10) return addr || ''
+  return `${addr.slice(0, 6)}...${addr.slice(-4)}`
 }
