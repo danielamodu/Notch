@@ -73,6 +73,33 @@ export function NimiqProvider({ children }) {
     return result
   }, [provider, isConnected])
 
+  const sendTransaction = useCallback(async (amountNim, memo) => {
+    if (!provider || !isConnected) {
+      throw new Error('Nimiq provider not connected')
+    }
+    if (!HOUSE_WALLET_ADDRESS) {
+      throw new Error('House wallet address is not configured')
+    }
+
+    const amountLunas = Math.round(amountNim * 100000)
+
+    const result = await provider.sendBasicTransactionWithData({
+      recipient: HOUSE_WALLET_ADDRESS,
+      value: amountLunas,
+      data: memo,
+    })
+
+    if (result && typeof result === 'object' && result.error) {
+      throw new Error(result.error.message || 'Transaction failed')
+    }
+
+    const hash = typeof result === 'string'
+      ? result
+      : (result?.hash || result?.txHash || result?.transactionHash || JSON.stringify(result))
+
+    return { hash, raw: result }
+  }, [provider, isConnected])
+
   const signMessage = useCallback(async (message) => {
     if (!provider || !isConnected) {
       throw new Error('Nimiq provider not connected')
@@ -113,6 +140,7 @@ export function NimiqProvider({ children }) {
       isLoading,
       error,
       sendBet,
+      sendTransaction,
       signMessage,
       getDeviceId,
       debug,
