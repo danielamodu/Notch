@@ -115,6 +115,17 @@ export async function getMyBetOnMarket(marketId, address) {
   return data
 }
 
+export async function getUserBetsOnMarket(marketId, address) {
+  const { data, error } = await supabase
+    .from('bets')
+    .select('*')
+    .eq('market_id', marketId)
+    .eq('bettor_address', address)
+    .order('created_at', { ascending: false })
+  throwIfError({ error }, 'getUserBetsOnMarket failed')
+  return data || []
+}
+
 // ---------------- Profiles ----------------
 
 export async function getProfile(address) {
