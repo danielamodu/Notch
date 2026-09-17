@@ -3,6 +3,7 @@ import NotchLogo from "@/components/NotchLogo";
 import { useNimiq } from "@/nimiq/NimiqContext";
 import {
   getActiveMarkets,
+  getMarketById,
   getBetsByMarket,
   getBetsByAddress,
   getMarketsByStatus,
@@ -12,7 +13,6 @@ import {
   placeBet,
   updateMarketOdds,
   upsertProfile,
-  resolveMarket,
 } from "@/lib/db";
 import { supabase } from "@/lib/supabase";
 import {
@@ -122,6 +122,12 @@ function buildBetMemo(marketId: string, side: Side, address: string): string {
     /* fall through to short memo */
   }
   return `nb:${String(marketId).slice(0, 8)}:${side}:${String(address).slice(-8)}`;
+}
+
+function winnerLabelOf(m: Market): string {
+  if (m.winner === "a") return m.sideA;
+  if (m.winner === "b") return m.sideB;
+  return "Tie";
 }
 
 function toViewModel(row: any): Market {
@@ -309,7 +315,7 @@ function MarketCard({ market, onOpen, position }: { market: Market; onOpen: () =
           <StatusPill tone={market.categoryClass === "red" ? "red" : market.categoryClass === "amber" ? "amber" : "ink"}>{market.category}</StatusPill>
           <span className="market-type">{resolved ? "RESOLVED" : market.type}</span>
         </div>
-        {resolved ? <span className="resolved-label">{market.winner === "a" ? market.sideA : market.sideB} won</span> : <span className={`market-time ${market.urgent ? "urgent" : ""}`}>{market.time}</span>}
+        {resolved ? <span className="resolved-label">{winnerLabelOf(market)} won</span> : <span className={`market-time ${market.urgent ? "urgent" : ""}`}>{market.time}</span>}
       </div>
       <h2>{market.title}</h2>
       <div className="probability-wrap" aria-label={`${market.sideA} ${market.aPct} percent, ${market.sideB} ${100 - market.aPct} percent`}>
@@ -416,8 +422,8 @@ function DetailScreen({ market, position, positionAmount, bets, onBack, onBet, o
 }) {
   const aLeading = market.aPct >= 50;
   const resolved = market.status === "resolved";
-  const winnerKey: Side = market.winner ?? (aLeading ? "a" : "b");
-  const winnerLabel = winnerKey === "a" ? market.sideA : market.sideB;
+  const winnerKey: Side | null = market.winner ?? null;
+  const winnerLabel = winnerKey ? winnerLabelOf(market) : "Tie";
   return (
     <main className="screen detail-screen">
       <div className="detail-nav">
@@ -428,14 +434,14 @@ function DetailScreen({ market, position, positionAmount, bets, onBack, onBet, o
       <div className="detail-kicker"><StatusPill tone={market.categoryClass === "red" ? "red" : market.categoryClass === "amber" ? "amber" : "ink"}>{market.category}</StatusPill><span className="kicker-divider" />{resolved ? "RESOLVED" : market.type === "OPINION" ? "CROWD DECIDES" : "CREATOR RESOLVES"}</div>
       <h1 className="detail-title">{market.title}</h1>
       <section className="hero-stat" aria-label="Current market split">
-        <div className={`hero-number ${resolved ? "resolved-number" : ""}`}><span>{resolved ? winnerLabel : aLeading ? market.aPct : 100 - market.aPct}{resolved ? " won" : "%"}</span><span className="hero-arrow">{resolved ? "✓" : "↗"}</span></div>
-        <div className="hero-caption"><strong>{resolved ? `${winnerLabel} wins the pot` : `${aLeading ? market.sideA : market.sideB} is currently leading`}</strong><span>{resolved ? `${market.resolvedPot ?? market.pool} NIM split` : "based on NIM committed"}</span></div>
+        <div className={`hero-number ${resolved ? "resolved-number" : ""}`}><span>{resolved ? (winnerKey ? `${winnerLabel} won` : "Tie") : `${aLeading ? market.aPct : 100 - market.aPct}%`}</span><span className="hero-arrow">{resolved ? "✓" : "↗"}</span></div>
+        <div className="hero-caption"><strong>{resolved ? (winnerKey ? `${winnerLabel} wins the pot` : "Stakes refunded") : `${aLeading ? market.sideA : market.sideB} is currently leading`}</strong><span>{resolved ? `${market.resolvedPot ?? market.pool} NIM split` : "based on NIM committed"}</span></div>
       </section>
       <div className="detail-split">
         <div className="detail-split-labels"><span className={aLeading ? "selected-side" : ""}>{market.sideA}<strong>{market.aPct}%</strong></span><span className={!aLeading ? "selected-side" : ""}>{market.sideB}<strong>{100 - market.aPct}%</strong></span></div>
         <div className="probability-track detail-track"><span style={{ width: `${market.aPct}%` }} /><span style={{ width: `${100 - market.aPct}%` }} /></div>
       </div>
-      {resolved ? <section className="result-panel"><div><span>Winning side</span><strong>{winnerLabel}</strong></div><div><span>Pot split</span><strong>{market.resolvedPot ?? market.pool} <small>NIM</small></strong></div>{position && <div><span>Your payout</span><strong className="hot-value">+{market.payout ?? "0"} <small>NIM</small></strong></div>}</section> : <div className="bet-actions">
+      {resolved ? <section className="result-panel"><div><span>Winning side</span><strong>{winnerLabel}</strong></div><div><span>Pot split</span><strong>{market.resolvedPot ?? market.pool} <small>NIM</small></strong></div>{position && <div><span>{winnerKey ? "Your payout" : "Refunded"}</span><strong className="hot-value">+{market.payout ?? positionAmount} <small>NIM</small></strong></div>}</section> : <div className="bet-actions">
         <button className={`bet-button ${aLeading ? "primary" : "secondary"}`} onClick={() => onBet("a")}>Bet {market.sideA} <NotchGlyph kind="arrow" /></button>
         <button className={`bet-button ${!aLeading ? "primary" : "secondary"}`} onClick={() => onBet("b")}>Bet {market.sideB} <NotchGlyph kind="arrow" /></button>
       </div>}
@@ -628,7 +634,23 @@ function ProfileScreen({ wallet, profile, activeMarkets, resolvedMarkets, myBets
       <section className="accuracy-card"><div className="score-ring" aria-label={`${winRate ?? 0} percent win rate`}><div className="score-ring-center"><strong>{winRate ?? "—"}</strong><small>%</small></div></div><div className="accuracy-copy"><h2>{participated.length === 0 ? <>No settled<br />calls yet.</> : <>More signal<br />than noise.</>}</h2><p>{participated.length === 0 ? "Your settled markets will score your conviction here." : `${participated.length} calls settled · ${wins.length} hit.`}</p></div></section>
       <div className="portfolio-filter" role="tablist" aria-label="Sort portfolio"><span>Sort by</span><button className={sort === "recent" ? "selected" : ""} onClick={() => setSort("recent")}>Recent</button><button className={sort === "amount" ? "selected" : ""} onClick={() => setSort("amount")}>Amount</button></div>
       <section className="portfolio-section"><div className="section-heading"><span>Active positions</span><span className="section-count">{sortedActive.length}</span></div>{sortedActive.length ? <div className="portfolio-list">{sortedActive.map((market) => <div className="portfolio-row" key={market.id}><div><strong>{market.title}</strong><span>{positions[market.id] === "a" ? market.sideA : market.sideB} · {market.pool} NIM pool</span></div><b>{positions[market.id] === "a" ? market.sideA : market.sideB}</b></div>)}</div> : <div className="portfolio-empty">Your next call will appear here.</div>}</section>
-      <section className="portfolio-section"><div className="section-heading"><span>Past results</span><span className="section-count">{sortedResolved.length}</span></div><div className="portfolio-list">{sortedResolved.map((market) => <div className="portfolio-row" key={market.id}><div><strong>{market.title}</strong><span>{market.winner === "a" ? market.sideA : market.sideB} won · {market.pool} NIM split</span></div><b className="hot-value">+{market.payout ?? "0"} NIM</b></div>)}</div></section>
+      <section className="portfolio-section"><div className="section-heading"><span>Past results</span><span className="section-count">{sortedResolved.length}</span></div><div className="portfolio-list">{sortedResolved.map((market) => {
+        const mine = myBets.filter((b) => b.market_id === market.id);
+        const staked = mine.reduce((s, b) => s + (Number(b.amount_nim) || 0), 0);
+        const backedWinner = !!market.winner && mine.some((b) => b.side === market.winner);
+        const sideTotal = market.winner === "a" ? (market.poolRaw * market.aPct) / 100 : (market.poolRaw * (100 - market.aPct)) / 100;
+        const wonAmount = backedWinner ? potentialPayout(mine.filter((b) => b.side === market.winner).reduce((s, b) => s + (Number(b.amount_nim) || 0), 0), sideTotal, market.poolRaw) : 0;
+        return (
+          <div className="portfolio-row" key={market.id}>
+            <div><strong>{market.title}</strong><span>{winnerLabelOf(market)}{market.winner ? " won" : " — stakes refunded"} · {market.pool} NIM split</span></div>
+            {market.winner ? (
+              backedWinner ? <b className="hot-value">+{wonAmount.toFixed(0)} NIM</b> : <b>{staked > 0 ? "Lost" : "—"}</b>
+            ) : (
+              <b>{staked > 0 ? `+${staked.toFixed(0)} back` : "—"}</b>
+            )}
+          </div>
+        );
+      })}</div></section>
       <div className="section-heading profile-heading"><span>Recent activity</span></div>
       <div className="activity-list">{activity.length === 0 ? <div className="activity-row"><NotchGlyph kind="backed" /><div><strong>Nothing yet</strong><span>Your bets and markets show up here</span></div></div> : activity.map((a, i) => <div className="activity-row" key={i}><NotchGlyph kind={a.icon} /><div><strong>{a.title}</strong><span>{a.sub}</span></div></div>)}</div>
     </main>
@@ -916,12 +938,27 @@ export default function Home() {
       setResolvingId(selectedMarket.id);
       showToast("Submitting resolution to Nimiq…");
       try {
-        const row = await resolveMarket(selectedMarket.id, winner);
+        const { data, error } = await supabase.functions.invoke("process-payouts", {
+          body: { marketId: selectedMarket.id, winningSide: winner },
+        });
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+
+        const row = await getMarketById(selectedMarket.id);
         const updated = toViewModel(row);
         const mine = userTotals(selectedMarket.id);
-        const staked = winner === "a" ? mine.a : mine.b;
-        const sideTotal = winner === "a" ? (updated.poolRaw * updated.aPct) / 100 : (updated.poolRaw * (100 - updated.aPct)) / 100;
-        updated.payout = staked > 0 ? potentialPayout(staked, sideTotal, updated.poolRaw).toFixed(0) : "0";
+        const staked = mine.a + mine.b;
+        if (updated.winner) {
+          const sideTotal =
+            updated.winner === "a"
+              ? (updated.poolRaw * updated.aPct) / 100
+              : (updated.poolRaw * (100 - updated.aPct)) / 100;
+          const mineOnWinner = updated.winner === "a" ? mine.a : mine.b;
+          updated.payout = mineOnWinner > 0 ? potentialPayout(mineOnWinner, sideTotal, updated.poolRaw).toFixed(0) : "0";
+        } else {
+          // Tie (or no winner) — stakes were refunded.
+          updated.payout = staked > 0 ? staked.toFixed(0) : "0";
+        }
         updated.resolvedPot = updated.pool;
         setMarkets((current) => current.map((m) => (m.id === updated.id ? updated : m)));
         setResolvedMarkets((current) => {
@@ -929,14 +966,23 @@ export default function Home() {
           return [updated, ...rest];
         });
         setSelectedMarket(updated);
-        showToast(`Market resolved · ${winner === "a" ? updated.sideA : updated.sideB} wins the pot`);
+        await refreshUserData();
+        const paid = data?.payouts ?? 0;
+        const failed = data?.failed ?? 0;
+        showToast(
+          failed > 0
+            ? `Resolved · ${paid} paid, ${failed} failed`
+            : updated.winner
+              ? `Market resolved · ${updated.winner === "a" ? updated.sideA : updated.sideB} wins · ${paid} payouts sent`
+              : "Market resolved · tie, stakes refunded"
+        );
       } catch (e: any) {
         showToast(`Resolve failed · ${e?.message || String(e)}`);
       } finally {
         setResolvingId(null);
       }
     },
-    [selectedMarket, showToast, userTotals]
+    [selectedMarket, showToast, userTotals, refreshUserData]
   );
 
   const handleShare = useCallback(() => {
