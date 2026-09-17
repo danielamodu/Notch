@@ -20,6 +20,128 @@ interface NimiqContextValue {
 
 const NimiqContext = createContext<NimiqContextValue | null>(null)
 
+function friendlyWalletMessage(raw: string): string {
+  if (/not injected|nimiq app/i.test(raw)) {
+    return 'Open Notch inside Nimiq Pay to connect your wallet.'
+  }
+  if (/empty|no accounts/i.test(raw)) {
+    return 'No wallet account found. Add an account in Nimiq Pay and try again.'
+  }
+  return 'Something went wrong connecting your wallet. Please try again.'
+}
+
+function WalletErrorPopup({ error, debug }: { error: any; debug: DebugInfo }) {
+  const [dismissed, setDismissed] = useState(false)
+  if (dismissed) return null
+  const raw = error?.message || String(error)
+  return (
+    <div
+      role="alertdialog"
+      aria-modal="true"
+      aria-label="Wallet connection issue"
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 999999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px',
+        boxSizing: 'border-box',
+      }}
+    >
+      <div
+        style={{ position: 'absolute', inset: 0, background: 'rgba(23, 23, 23, 0.45)' }}
+        onClick={() => setDismissed(true)}
+        aria-label="Dismiss"
+      />
+      <section
+        style={{
+          position: 'relative',
+          width: '100%',
+          maxWidth: '400px',
+          background: '#FFFDF9',
+          border: '1px solid #E9DED1',
+          borderRadius: '20px',
+          padding: '24px 20px 20px 20px',
+          fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif',
+          color: '#171717',
+          zIndex: 1,
+          maxHeight: '80vh',
+          overflowY: 'auto',
+        }}
+      >
+        <span
+          style={{
+            display: 'inline-block',
+            backgroundColor: '#FF3B3B',
+            color: '#FFF4E6',
+            fontSize: '12px',
+            fontWeight: 800,
+            letterSpacing: '1px',
+            borderRadius: '999px',
+            padding: '4px 12px',
+            marginBottom: '12px',
+          }}
+        >
+          WALLET
+        </span>
+        <h2 style={{ fontSize: '20px', fontWeight: 800, margin: '0 0 8px 0', lineHeight: 1.3 }}>
+          Couldn't connect your wallet
+        </h2>
+        <p style={{ fontSize: '15px', color: '#77736E', margin: '0 0 16px 0', lineHeight: 1.5 }}>
+          {friendlyWalletMessage(raw)}
+        </p>
+        <details style={{ fontSize: '13px', color: '#77736E', marginBottom: '16px' }}>
+          <summary style={{ cursor: 'pointer', fontWeight: 700 }}>Details</summary>
+          <div style={{ marginTop: '8px', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{raw}</div>
+          {Object.entries(debug).map(([k, v]) => (
+            <div key={k}>
+              {k}: {String(v)}
+            </div>
+          ))}
+        </details>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            onClick={() => setDismissed(true)}
+            style={{
+              flex: 1,
+              background: 'transparent',
+              border: '1px solid #E9DED1',
+              borderRadius: '12px',
+              padding: '14px',
+              fontSize: '15px',
+              fontWeight: 700,
+              color: '#171717',
+              cursor: 'pointer',
+              minHeight: '44px',
+            }}
+          >
+            Dismiss
+          </button>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              flex: 1,
+              background: '#FF3B3B',
+              border: 'none',
+              borderRadius: '12px',
+              padding: '14px',
+              fontSize: '15px',
+              fontWeight: 700,
+              color: '#FFF4E6',
+              cursor: 'pointer',
+              minHeight: '44px',
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      </section>
+    </div>
+  )
+}
+
 export function NimiqProvider({ children }: { children: ReactNode }) {
   const [address, setAddress] = useState<string | null>(null)
   const [isConnected, setIsConnected] = useState(false)
@@ -176,64 +298,7 @@ export function NimiqProvider({ children }: { children: ReactNode }) {
     >
       {children}
       {error && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: '#FFF4E6',
-            color: '#171717',
-            fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif',
-            fontSize: '20px',
-            lineHeight: '1.5',
-            padding: '24px',
-            width: '100%',
-            height: '100%',
-            boxSizing: 'border-box',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-            zIndex: 999999,
-            overflowY: 'auto',
-          }}
-        >
-          <span
-            style={{
-              display: 'inline-block',
-              backgroundColor: '#FF3B3B',
-              color: '#FFF4E6',
-              fontSize: '13px',
-              fontWeight: 800,
-              letterSpacing: '1px',
-              borderRadius: '999px',
-              padding: '4px 12px',
-              marginBottom: '12px',
-            }}
-          >
-            NOTCH ERROR
-          </span>
-          <div style={{ fontWeight: 800, marginBottom: '12px', fontSize: '24px', lineHeight: 1.3 }}>
-            Nimiq wallet didn't connect.
-          </div>
-          <div style={{ fontSize: '18px' }}>{error?.message || String(error)}</div>
-          {error?.stack && (
-            <div style={{ marginTop: '16px', fontSize: '14px', color: '#77736E' }}>{error.stack}</div>
-          )}
-          <div
-            style={{
-              marginTop: '24px',
-              borderTop: '1px solid #E9DED1',
-              paddingTop: '16px',
-              fontSize: '16px',
-            }}
-          >
-            <div style={{ fontWeight: 800, marginBottom: '8px' }}>Diagnostics</div>
-            {Object.entries(debug).map(([k, v]) => (
-              <div key={k}>
-                <span style={{ color: '#77736E' }}>{k}: </span>
-                {String(v)}
-              </div>
-            ))}
-          </div>
-        </div>
+        <WalletErrorPopup key={String(error?.message || error)} error={error} debug={debug} />
       )}
     </NimiqContext.Provider>
   )
