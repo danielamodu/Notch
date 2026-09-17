@@ -180,9 +180,10 @@ export function NimiqProvider({ children }: { children: ReactNode }) {
           style={{
             position: 'fixed',
             inset: 0,
-            backgroundColor: '#000',
-            color: '#fff',
-            fontSize: '22px',
+            backgroundColor: '#FFF4E6',
+            color: '#171717',
+            fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif',
+            fontSize: '20px',
             lineHeight: '1.5',
             padding: '24px',
             width: '100%',
@@ -194,25 +195,40 @@ export function NimiqProvider({ children }: { children: ReactNode }) {
             overflowY: 'auto',
           }}
         >
-          <div style={{ fontWeight: 'bold', marginBottom: '16px', fontSize: '26px' }}>
-            Nimiq SDK init error:
+          <span
+            style={{
+              display: 'inline-block',
+              backgroundColor: '#FF3B3B',
+              color: '#FFF4E6',
+              fontSize: '13px',
+              fontWeight: 800,
+              letterSpacing: '1px',
+              borderRadius: '999px',
+              padding: '4px 12px',
+              marginBottom: '12px',
+            }}
+          >
+            NOTCH ERROR
+          </span>
+          <div style={{ fontWeight: 800, marginBottom: '12px', fontSize: '24px', lineHeight: 1.3 }}>
+            Nimiq wallet didn't connect.
           </div>
-          <div>{error?.message || String(error)}</div>
+          <div style={{ fontSize: '18px' }}>{error?.message || String(error)}</div>
           {error?.stack && (
-            <div style={{ marginTop: '16px', fontSize: '16px', opacity: 0.9 }}>{error.stack}</div>
+            <div style={{ marginTop: '16px', fontSize: '14px', color: '#77736E' }}>{error.stack}</div>
           )}
           <div
             style={{
               marginTop: '24px',
-              borderTop: '2px solid #fff',
+              borderTop: '1px solid #E9DED1',
               paddingTop: '16px',
-              fontSize: '18px',
+              fontSize: '16px',
             }}
           >
-            <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>Diagnostics:</div>
+            <div style={{ fontWeight: 800, marginBottom: '8px' }}>Diagnostics</div>
             {Object.entries(debug).map(([k, v]) => (
               <div key={k}>
-                <span style={{ opacity: 0.7 }}>{k}: </span>
+                <span style={{ color: '#77736E' }}>{k}: </span>
                 {String(v)}
               </div>
             ))}

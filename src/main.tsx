@@ -13,11 +13,11 @@ function showFatal(message: string) {
       div = document.createElement('div')
       div.id = 'notch-fatal-overlay'
       div.style.cssText =
-        'position:fixed;inset:0;background:#000;color:#fff;font-size:22px;line-height:1.5;padding:24px;white-space:pre-wrap;word-break:break-word;overflow-y:auto;font-family:system-ui,sans-serif;z-index:9999999;'
+        'position:fixed;inset:0;background:#FFF4E6;color:#171717;font-size:20px;line-height:1.5;padding:24px;white-space:pre-wrap;word-break:break-word;overflow-y:auto;font-family:Inter,-apple-system,BlinkMacSystemFont,Helvetica Neue,Arial,sans-serif;z-index:9999999;'
       const dismiss = document.createElement('div')
       dismiss.textContent = 'TAP HERE TO DISMISS'
       dismiss.style.cssText =
-        'background:#F6B221;color:#000;font-weight:700;text-align:center;border-radius:10px;padding:12px;margin-bottom:16px;font-size:16px;white-space:normal;'
+        'background:#FF3B3B;color:#FFF4E6;font-weight:800;text-align:center;border-radius:12px;padding:14px;margin-bottom:16px;font-size:16px;white-space:normal;'
       dismiss.onclick = () => {
         const el = document.getElementById('notch-fatal-overlay')
         if (el) el.remove()
