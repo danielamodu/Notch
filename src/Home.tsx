@@ -469,6 +469,20 @@ function DetailScreen({ market, position, positionAmount, bets, onBack, onBet, o
 function BetSheet({ market, initialSide, busy, onClose, onConfirm }: { market: Market; initialSide: Side; busy: boolean; onClose: () => void; onConfirm: (side: Side, amount: number) => void }) {
   const [side, setSide] = useState<Side>(initialSide);
   const [amount, setAmount] = useState(25);
+  const [customActive, setCustomActive] = useState(false);
+  const [customText, setCustomText] = useState("");
+  const customInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (customActive && customInputRef.current) customInputRef.current.focus();
+  }, [customActive]);
+
+  const effective = customActive ? Number(customText) : amount;
+  const effectiveLabel = customActive
+    ? customText === "" || !Number.isFinite(effective)
+      ? "0"
+      : String(Number(customText))
+    : String(amount);
   return (
     <div className="sheet-layer" role="dialog" aria-modal="true" aria-labelledby="bet-sheet-title">
       <button className="sheet-scrim" onClick={onClose} aria-label="Close bet sheet" />
@@ -486,9 +500,36 @@ function BetSheet({ market, initialSide, busy, onClose, onConfirm }: { market: M
           ))}
         </div>
         <div className="amount-heading"><span>How much NIM?</span></div>
-        <div className="amount-options">{AMOUNTS.map((value) => <button key={value} className={amount === value ? "chosen" : ""} onClick={() => setAmount(value)}>{value} NIM</button>)}<button className={amount !== 5 && amount !== 25 && amount !== 100 ? "chosen" : ""} onClick={() => setAmount(250)}>Custom</button></div>
-        <div className="sheet-review"><span>Backing {side === "a" ? market.sideA : market.sideB}</span><strong>{amount} NIM</strong></div>
-        <button className="confirm-button" disabled={busy} onClick={() => onConfirm(side, amount)}>{busy ? "Confirm in Nimiq Pay…" : <>Back {side === "a" ? market.sideA : market.sideB} with {amount} NIM <NotchGlyph kind="arrow" /></>}</button>
+        <div className="amount-options">{AMOUNTS.map((value) => <button key={value} className={!customActive && amount === value ? "chosen" : ""} onClick={() => { setAmount(value); setCustomActive(false); }}>{value} NIM</button>)}<button className={customActive ? "chosen" : ""} onClick={() => { setCustomText(String(amount)); setCustomActive(true); }}>Custom</button></div>
+        {customActive && (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", marginBottom: "20px" }}>
+            <input
+              ref={customInputRef}
+              type="text"
+              inputMode="decimal"
+              pattern="[0-9]*[.,]?[0-9]*"
+              value={customText}
+              onChange={(event) => setCustomText(event.target.value.replace(/[^0-9.]/g, ""))}
+              placeholder="0.0"
+              aria-label="Custom NIM amount"
+              style={{
+                width: "160px",
+                background: "#FFFDF9",
+                border: "1px solid #E9DED1",
+                borderRadius: "12px",
+                color: "#171717",
+                fontSize: "1.4rem",
+                fontWeight: 700,
+                textAlign: "center",
+                padding: "10px 8px",
+                outline: "none",
+              }}
+            />
+            <span style={{ color: "#77736E", fontSize: "0.9rem", fontWeight: 600 }}>NIM</span>
+          </div>
+        )}
+        <div className="sheet-review"><span>Backing {side === "a" ? market.sideA : market.sideB}</span><strong>{effectiveLabel} NIM</strong></div>
+        <button className="confirm-button" disabled={busy} onClick={() => onConfirm(side, effective)}>{busy ? "Confirm in Nimiq Pay…" : <>Back {side === "a" ? market.sideA : market.sideB} with {effectiveLabel} NIM <NotchGlyph kind="arrow" /></>}</button>
         <p className="sheet-disclaimer">Nimiq Pay will ask you to confirm this transaction.</p>
       </section>
     </div>
