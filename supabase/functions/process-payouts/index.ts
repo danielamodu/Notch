@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { sendNimiqTransaction } from '../_shared/nimiqSigner.ts'
+import { sendNimiqTransaction, resolveHousePrivateKeyHex } from '../_shared/nimiqSigner.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -34,10 +34,12 @@ Deno.serve(async (req) => {
     )
 
     const houseAddress = Deno.env.get('HOUSE_WALLET_ADDRESS')!
-    const housePrivateKey = Deno.env.get('HOUSE_WALLET_PRIVATE_KEY')!
-    if (!houseAddress || !housePrivateKey) {
-      throw new Error('House wallet secrets are not configured')
+    if (!houseAddress) {
+      throw new Error('HOUSE_WALLET_ADDRESS secret is not configured')
     }
+    // Accepts either a raw hex key or the 12-word phrase (derived safely —
+    // the signer aborts if the key doesn't match the address above).
+    const { hex: housePrivateKey } = await resolveHousePrivateKeyHex()
 
     // 1. Fetch and validate market — must still be active.
     const { data: market, error: marketError } = await supabase

@@ -33,6 +33,96 @@ function toHex(bytes: Uint8Array): string {
     .join('')
 }
 
+function concatBytes(...arrs: Uint8Array[]): Uint8Array {
+  const out = new Uint8Array(arrs.reduce((n, a) => n + a.length, 0))
+  let off = 0
+  for (const a of arrs) {
+    out.set(a, off)
+    off += a.length
+  }
+  return out
+}
+
+async function hmacSha512(keyBytes: Uint8Array, data: Uint8Array): Promise<Uint8Array> {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    keyBytes,
+    { name: 'HMAC', hash: 'SHA-512' },
+    false,
+    ['sign']
+  )
+  return new Uint8Array(await crypto.subtle.sign('HMAC', key, data))
+}
+
+async function bip39Seed(mnemonic: string, passphrase = ''): Promise<Uint8Array> {
+  const enc = new TextEncoder()
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(mnemonic.normalize('NFKD')),
+    'PBKDF2',
+    false,
+    ['deriveBits']
+  )
+  const bits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      hash: 'SHA-512',
+      salt: enc.encode('mnemonic' + passphrase),
+      iterations: 2048,
+    },
+    keyMaterial,
+    512
+  )
+  return new Uint8Array(bits)
+}
+
+// SLIP-10 Ed25519 derivation (hardened levels only, as Ed25519 requires).
+async function slip10Ed25519(seed: Uint8Array, path: string): Promise<Uint8Array> {
+  const enc = new TextEncoder()
+  let I = await hmacSha512(enc.encode('ed25519 seed'), seed)
+  let k = I.slice(0, 32)
+  let c = I.slice(32)
+
+  const segs = path.replace(/^m\//, '').split('/')
+  for (const s of segs) {
+    const hardened = s.endsWith("'")
+    if (!hardened) throw new Error('Only hardened derivation is supported for Ed25519 keys')
+    const idx = parseInt(s.slice(0, -1), 10)
+    if (!Number.isInteger(idx) || idx < 0) throw new Error(`Bad path segment: ${s}`)
+    const indexBytes = new Uint8Array(4)
+    new DataView(indexBytes.buffer).setUint32(0, 0x80000000 + idx)
+    I = await hmacSha512(c, concatBytes(new Uint8Array([0]), k, indexBytes))
+    k = I.slice(0, 32)
+    c = I.slice(32)
+  }
+  return k
+}
+
+// Resolves the house private key (hex). Prefers HOUSE_WALLET_PRIVATE_KEY;
+// otherwise derives from the 12-word HOUSE_SEED_PHRASE via BIP39 + SLIP-10
+// Ed25519. The signer verifies the derived address matches
+// HOUSE_WALLET_ADDRESS before sending anything, so a wrong path fails
+// safe with a clear error (and the derived address to compare).
+export async function resolveHousePrivateKeyHex(): Promise<{ hex: string; source: string }> {
+  const raw = Deno.env.get('HOUSE_WALLET_PRIVATE_KEY')
+  if (raw && raw.trim()) {
+    return { hex: raw.trim().replace(/^0x/, ''), source: 'HOUSE_WALLET_PRIVATE_KEY' }
+  }
+
+  const phrase = Deno.env.get('HOUSE_SEED_PHRASE')
+  if (!phrase || !phrase.trim()) {
+    throw new Error('Set either HOUSE_WALLET_PRIVATE_KEY or HOUSE_SEED_PHRASE secret')
+  }
+  const words = phrase.trim().split(/\s+/)
+  if (![12, 15, 18, 21, 24].includes(words.length)) {
+    throw new Error('HOUSE_SEED_PHRASE must be 12, 15, 18, 21 or 24 words')
+  }
+  const seed = await bip39Seed(words.join(' '), Deno.env.get('HOUSE_SEED_PASSPHRASE') || '')
+  const path = Deno.env.get('NIMIQ_DERIVATION_PATH') || "m/44'/242'/0'/0/0"
+  const priv = await slip10Ed25519(seed, path)
+  return { hex: toHex(priv), source: `HOUSE_SEED_PHRASE (${path})` }
+}
+
 export async function sendNimiqTransaction(
   senderAddress: string,
   senderPrivateKey: string,
